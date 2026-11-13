@@ -40,12 +40,18 @@ If you prefer a local server, any static one works, for example `python -m http.
 
 ## Publish on GitHub Pages
 
-1. Push this folder to a GitHub repository (with `index.html` at the root).
-2. In the repository go to **Settings → Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**, select the `main` branch and the `/ (root)` folder, then **Save**.
-4. After a minute the game is live at `https://<user>.github.io/<repository>/`.
+The repository deploys itself with GitHub Actions (`.github/workflows/pages.yml`): every push to `main` checks the scripts and publishes the site.
+
+To do the same in your own copy: push the folder to GitHub, then in **Settings → Pages → Build and deployment** choose **GitHub Actions** as the source. The game goes live at `https://<user>.github.io/<repository>/`.
 
 All paths are relative, so it works under any repository name.
+
+## Contributing
+
+- Every change starts as an issue (Feature or Bug template) with a milestone.
+- Work on a branch cut from `develop`, named `feature/<issue>-<slug>`, `bug/<issue>-<slug>` or `chore/<issue>-<slug>`, and open a PR into `develop` that starts with `Closes #<issue>`. Merging closes the issue automatically.
+- Releases are branches: `release/X.Y.Z` is cut from `develop` and merged into `main`, which creates the tag, the GitHub Release and the Pages deploy.
+- The details (labels, milestones, versioning) are in [CLAUDE.md](CLAUDE.md).
 
 ## Project structure
 
