@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0610">
+  <title>LAST SONG</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="cabinet">
+    <div id="screen">
+      <canvas id="game" width="480" height="270" aria-label="LAST SONG - arcade beat 'em up"></canvas>
+      <div id="crt" aria-hidden="true"></div>
+    </div>
+    <p id="legend">MOVE <b>WASD / ARROWS</b> &middot; PUNCH <b>J</b> &middot; KICK <b>K</b> &middot; JUMP <b>SPACE</b> &middot; SOLO <b>L</b> &middot; START <b>ENTER</b> &middot; PAUSE <b>ESC</b> &middot; SOUND <b>M</b></p>
+  </main>
+
+  <!-- Touch controls (only shown on touch devices) -->
+  <div id="touch" aria-hidden="true">
+    <div id="pad"><div id="stick"></div></div>
+    <div id="sys">
+      <button type="button" class="sbtn" data-action="start">START</button>
+      <button type="button" class="sbtn" data-action="pause">PAUSE</button>
+    </div>
+    <div id="actions">
+      <button type="button" class="tbtn solo" data-action="special">SOLO</button>
+      <button type="button" class="tbtn jump" data-action="jump">JUMP</button>
+      <button type="button" class="tbtn kick" data-action="kick">KICK</button>
+      <button type="button" class="tbtn punch" data-action="punch">PUNCH</button>
+    </div>
+  </div>
+
+  <button type="button" id="mute" data-action="mute" title="Toggle sound (M)">SOUND ON</button>
+
+  <!-- Classic scripts (no ES modules) so the game also runs from file:// -->
+  <script defer src="js/core.js"></script>
+  <script defer src="js/input.js"></script>
+  <script defer src="js/audio.js"></script>
+  <script defer src="js/collision.js"></script>
+  <script defer src="js/camera.js"></script>
+  <script defer src="js/effects.js"></script>
+  <script defer src="js/hud.js"></script>
+  <script defer src="js/sprites.js"></script>
+  <script defer src="js/background.js"></script>
+  <script defer src="js/entity.js"></script>
+  <script defer src="js/props.js"></script>
+  <script defer src="js/combat.js"></script>
+  <script defer src="js/player.js"></script>
+  <script defer src="js/enemy.js"></script>
+  <script defer src="js/boss.js"></script>
+  <script defer src="js/levels.js"></script>
+  <script defer src="js/renderer.js"></script>
+  <script defer src="js/game.js"></script>
+  <script defer src="js/main.js"></script>
+</body>
+</html>
