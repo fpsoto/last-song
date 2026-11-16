@@ -1,0 +1,38 @@
+name: Feature
+description: A new capability or a change to existing behavior.
+title: "[Feature] "
+labels: ["feature"]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What problem does this solve for the player? Why now?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What will be built. Gameplay, art, audio or level changes.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Checkable statements that must be true when this is done.
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What this deliberately does not cover (optional).
+  - type: textarea
+    id: notes
+    attributes:
+      label: Technical notes
+      description: Decisions, constraints, risks (optional).

@@ -1,0 +1,28 @@
+name: CI
+
+# Pull requests and develop get the same syntax check that gates the Pages deploy on main.
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Node is only a development tool here: the game itself needs no build and no dependencies.
+      - name: Check JavaScript syntax
+        run: |
+          for f in js/*.js; do
+            echo "checking $f"
+            node --check "$f"
+          done
