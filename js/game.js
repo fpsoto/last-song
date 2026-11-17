@@ -403,7 +403,9 @@
       case 'victory':
       case 'gameover':
         LS.Effects.update(dt);
-        if (G.stateT > 1) {
+        // Very short gate: `pressed` is edge-triggered, so a key still held from combat
+        // cannot fire, and the gate only absorbs a last-moment mash as the screen appears.
+        if (G.stateT > 0.25) {
           if (ok) { A.sfx('confirm'); G.startLevel(); }
           else if (I.pressed.pause) { A.stopMusic(); G.setState('title'); }
         }

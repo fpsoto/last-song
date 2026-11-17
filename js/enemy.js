@@ -8,18 +8,18 @@
   const TYPES = (LS.ENEMY_TYPES = {
     // Slow, tough, hits hard with a clearly telegraphed haymaker.
     roadie: {
-      kind: 'roadie', name: 'ROADIE', hp: 44, speed: 46, reach: 25, rest: 0.5, cooldown: 1.4, score: 500, charge: 25,
-      atk: { anim: 'haymaker', dur: 0.82, active: [0.42, 0.54], range: [2, 31], lane: 12, dmg: 12, kb: 120, stun: 0.36, heavy: true, hitY: 34 },
+      kind: 'roadie', name: 'ROADIE', hp: 44, speed: 46, reach: 25, rest: 0.5, cooldown: 1.4, score: 500, charge: 25, getupInvuln: 0.6,
+      atk: { anim: 'haymaker', dur: 0.82, active: [0.42, 0.54], range: [2, 31], lane: 12, dmg: 12, kb: 120, stun: 0.36, heavy: true, armor: true, hitY: 34 },
     },
     // Mohawk punk: starts the attack from far away and dashes into Jack with a shoulder charge.
     // The telegraph is a deep crouch; sidestepping (W / S) or jumping dodges it.
     punk: {
-      kind: 'punk', name: 'PUNK', hp: 34, speed: 80, reach: 54, rest: 0.4, cooldown: 1.2, score: 400, charge: 20,
+      kind: 'punk', name: 'PUNK', hp: 34, speed: 80, reach: 54, rest: 0.4, cooldown: 1.2, score: 400, charge: 20, getupInvuln: 0.6,
       atk: { anim: 'lunge', dur: 0.78, active: [0.36, 0.56], range: [2, 30], lane: 11, dmg: 10, kb: 130, stun: 0.36, hitY: 30, dash: [0.3, 0.56, 170] },
     },
     // Fast and fragile: quick handbag swing, then backs off.
     groupie: {
-      kind: 'groupie', name: 'GROUPIE', hp: 30, speed: 74, reach: 24, rest: 0.45, cooldown: 0.9, retreat: true, score: 300, charge: 16,
+      kind: 'groupie', name: 'GROUPIE', hp: 30, speed: 74, reach: 24, rest: 0.45, cooldown: 0.9, retreat: true, score: 300, charge: 16, getupInvuln: 0.5,
       atk: { anim: 'bag', dur: 0.5, active: [0.22, 0.32], range: [2, 30], lane: 12, dmg: 7, kb: 70, stun: 0.28, hitY: 36 },
     },
   });
@@ -29,13 +29,26 @@
   class Enemy extends LS.Fighter {
     constructor(type, x, y) {
       const cfg = TYPES[type];
-      super(cfg.kind, x, y, { name: cfg.name, team: 'enemy', hp: cfg.hp });
+      super(cfg.kind, x, y, { name: cfg.name, team: 'enemy', hp: cfg.hp, getupInvuln: cfg.getupInvuln });
       this.cfg = cfg;
       this.cool = LS.rand(0.3, 1.0);       // time until it may attack again
       this.idleT = 0;
       this.backoff = false;
       this.laneBias = LS.rand(-12, 12);    // where it hovers while waiting its turn
       this.setState('approach');
+    }
+
+    /* Attack data may set `armor`: while that attack is in progress, light blows still hurt
+       but no longer interrupt it (otherwise chained punches cancel every wind-up and the
+       enemy never gets to swing). Knockdown blows (kick, uppercut) still break through,
+       so the player has a counter. */
+    takeHit(def, dir) {
+      const a = this.atk;
+      if (this.state === 'attack' && a && a.def.armor && !def.knockdown && this.hp - def.dmg > 0) {
+        this.hp -= def.dmg; this.flash = 0.12; this.barT = 2.5;
+        return false;
+      }
+      return super.takeHit(def, dir);
     }
 
     update(dt, g) {

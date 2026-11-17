@@ -108,7 +108,7 @@ Append these to the URL:
 
 ## Scope and known limitations
 
-This is a proof of concept with a single stage. Not included on purpose: inventory, skill trees, complex combos, saves, multiplayer, character select, shops or RPG progression.
+This is a proof of concept with a single stage. The plan is a complete four-level campaign (1950s to 1980s) with branching routes and unique bosses, described in [docs/level-design.md](docs/level-design.md); version 1.0.0 targets that campaign. Not included on purpose: inventory, skill trees, multiplayer, shops or RPG progression.
 
 - Music only starts once the level begins, after the first key press or tap (browsers block audio before a user gesture).
 - Enemies and the boss share the same generic "hurt / knocked down" animations.

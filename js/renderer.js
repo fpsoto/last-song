@@ -255,6 +255,8 @@
     T.draw(ctx, 'SCORE ' + String(g.score).padStart(6, '0'), 240, 212, '#f4f0e8', 1, 'center');
     T.draw(ctx, 'NEXT ERA: THE 1970S - COMING SOON', 240, 224, '#ff9ad0', 1, 'center');
     if (g.stateT > 1.5 && ((g.t * 2.5) | 0) % 2 === 0) T.shadow(ctx, 'PRESS ENTER', 240, 240, '#ffe14a', 1, 'center');
+    // Same hint, colour and style as Game Over; shown with the prompt so the exit is discoverable
+    if (g.stateT > 1.5) T.draw(ctx, 'ESC - TITLE', 240, 254, '#7d6f9c', 1, 'center');
   }
 
   R.draw = function (g, ctx) {

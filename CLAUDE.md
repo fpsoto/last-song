@@ -3,6 +3,8 @@
 ## What this is
 LAST SONG: a playable 2D arcade beat 'em up proof of concept in plain HTML5 / CSS3 / vanilla JavaScript (Canvas 2D). No frameworks, no build step, no backend, no external assets. Live at https://fpsoto.github.io/last-song/.
 
+The goal is a four-level campaign through the history of rock with branching routes. The current 1984 stage is the proof of concept and the base of Level 4. Read `docs/level-design.md` before designing levels, routes, enemies or bosses.
+
 ## Non-negotiable conventions
 - **Everything is in English**: game text, code, comments, issues, PRs, commit messages. Comment the interesting or hard parts of the code.
 - Classic `<script defer>` files sharing the global `LS` namespace (no ES modules), so the game also runs from `file://`. Script order lives in `index.html`.
@@ -27,7 +29,7 @@ LAST SONG: a playable 2D arcade beat 'em up proof of concept in plain HTML5 / CS
 - **No AI attribution**: no `Co-Authored-By` trailer and no "Generated with..." line in commits or PRs.
 
 ## Versions and releases
-- Semver. `0.x` = pre-production (anything may still change); **`1.0.0` = a finished, balanced, playtested stage**. One milestone per version (`v0.1.0`, `v0.2.0`, ..., `v1.0.0`).
+- Semver. `0.x` = pre-production (anything may still change); **`1.0.0` = the complete four-level campaign (1950s to 1980s)** with its branches, enemies and bosses, balanced and playtested. The 0.x versions consolidate the mechanics and the branching architecture first, then expand the content level by level (design in `docs/level-design.md`). One milestone per version (`v0.1.0`, `v0.2.0`, ..., `v1.0.0`).
 - **A release is a branch, never a hand-made tag**: cut `release/X.Y.Z` from `develop` (its name is the single source of the version) and open a PR `release/X.Y.Z` -> `main`. Merge with **Create a merge commit**. Then:
   - `.github/workflows/release.yml` creates the GitHub Release and its `vX.Y.Z` tag (pre-release for 0.x) and opens the back-merge PR `main` -> `develop` (merge it with a merge commit too).
   - `.github/workflows/pages.yml` redeploys the site, because `main` changed.
