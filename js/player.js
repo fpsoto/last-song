@@ -10,8 +10,8 @@
 
   // Attack data. Times in seconds, distances in logical pixels.
   const ATK = {
-    punch1: { anim: 'punch1', dur: 0.30, active: [0.07, 0.16], range: [2, 30], lane: 13, dmg: 8, kb: 70, stun: 0.34, chain: true, lunge: 60, hitY: 34 },
-    punch2: { anim: 'punch2', dur: 0.30, active: [0.07, 0.16], range: [2, 31], lane: 13, dmg: 8, kb: 80, stun: 0.34, chain: true, lunge: 60, hitY: 34 },
+    punch1: { anim: 'punch1', dur: 0.26, active: [0.07, 0.16], range: [2, 30], lane: 13, dmg: 8, kb: 70, stun: 0.34, chain: true, lunge: 60, hitY: 34 },
+    punch2: { anim: 'punch2', dur: 0.26, active: [0.07, 0.16], range: [2, 31], lane: 13, dmg: 8, kb: 80, stun: 0.34, chain: true, lunge: 60, hitY: 34 },
     punch3: { anim: 'upper', dur: 0.44, active: [0.13, 0.24], range: [2, 31], lane: 13, dmg: 14, kb: 150, knockdown: true, heavy: true, lunge: 70, hitY: 40 },
     kick: { anim: 'kick', dur: 0.48, active: [0.16, 0.28], range: [2, 39], lane: 14, dmg: 18, kb: 185, knockdown: true, heavy: true, lunge: 30, hitY: 26 },
     // Flying kick: the active window covers almost the whole attack, it ends when Jack lands.
