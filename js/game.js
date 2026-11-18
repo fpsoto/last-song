@@ -85,12 +85,22 @@
     return i >= 0 && i < m.items.length ? i : -1;
   };
 
+  /* PLAY: a drum hit, the stage lights go out, a spotlight closes in on Jack, then the game starts and
+     fades in (about 1.6 s in all). The screen never shows anything else in between. Until Level 1
+     exists it leads into the current stage. */
+  const LAUNCH_END = 1.25;
+  G.startLaunch = function () {
+    LS.Audio.stopMusic();
+    LS.Audio.sfx('drum');
+    G.setState('launch');
+  };
+
   G.menuSelect = function (i) {
     const A = LS.Audio;
     if (G.MENU.locked[i]) { A.sfx('denied'); G.menuMsgT = 2.2; return; }
+    if (i === 0) { G.startLaunch(); return; }
     A.sfx('strum');
-    if (i === 0) G.startLevel();
-    else if (i === 2) { G.opt = 0; G.setState('options'); }
+    if (i === 2) { G.opt = 0; G.setState('options'); }
     else if (i === 3) G.setState('credits');
   };
 
@@ -161,14 +171,14 @@
     G.enterTitle();
   };
 
-  G.startLevel = function () {
+  G.startLevel = function (fadeIn) {
     G.player = new LS.Player(0, 0);
     const hp = parseInt(LS.params.get('hp'), 10);
     if (hp) G.player.hp = G.player.lagHp = hp;
     const pw = parseInt(LS.params.get('power'), 10);
     if (pw) G.player.power = Math.min(100, pw);
     G.hitstop = 0; G.slowT = 0; G.score = 0; G.noCharge = false; G.lowWarned = false;
-    G.pendingSeg = null; G.fade = 0;
+    G.pendingSeg = null; G.fade = fadeIn ? 1 : 0;   // coming from the play transition, the game opens from black
     G.loadSegment(G.startSeg, false);        // a retry starts again from the level's first segment
     const era = G.era;
     G.player.x = era.start.x; G.player.y = era.start.y;
@@ -464,6 +474,7 @@
 
     // These run in real time, even during hit-stop.
     G.cardT += dt;
+    if (G.phase !== 'transition' && G.fade > 0) G.fade = Math.max(0, G.fade - dt / 0.35);   // fade in after the play transition
     LS.Effects.update(dt);
     cam.updateShake(dt);
     if (G.targetT > 0) G.targetT -= dt;
@@ -547,6 +558,10 @@
         else if (I.pressed.tap || (!c && (ok || I.pressed.punch))) G.menuSelect(G.menu);
         break;
       }
+
+      case 'launch':
+        if (G.stateT >= LAUNCH_END) G.startLevel(true);   // input is ignored for the whole transition
+        break;
 
       case 'options': {
         const n = G.OPTIONS_ROWS.length, back = () => { A.sfx('pluck'); G.setState('title'); };
