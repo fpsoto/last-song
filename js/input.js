@@ -10,6 +10,7 @@
     ArrowUp: 'up', KeyW: 'up',
     ArrowDown: 'down', KeyS: 'down',
     KeyJ: 'punch', KeyK: 'kick', Space: 'jump', KeyL: 'special',
+    KeyI: 'block', ShiftLeft: 'block', ShiftRight: 'block', // hold to guard
     Enter: 'start', NumpadEnter: 'start',
     Escape: 'pause',
     KeyM: 'mute',

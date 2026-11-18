@@ -92,6 +92,10 @@
     heavy() { noise(0.17, 0.55, 'lowpass', 1500); tone('sine', 160, 40, 0.24, 0.7); tone('square', 320, 60, 0.12, 0.18); },
     hurt() { tone('sawtooth', 340, 110, 0.18, 0.22); noise(0.06, 0.25, 'lowpass', 1800); },
     ko() { tone('square', 520, 60, 0.42, 0.2); noise(0.2, 0.2, 'lowpass', 900); },
+    // A blow absorbed by the guard: a dull, metallic knock (clearly not a hit, not a miss).
+    block() { noise(0.06, 0.3, 'bandpass', 1900); tone('triangle', 540, 330, 0.09, 0.26); tone('square', 120, 70, 0.07, 0.14); },
+    // The guard gives way: a harsher crack than a normal hit.
+    guardbreak() { noise(0.2, 0.5, 'bandpass', 2600); tone('sawtooth', 700, 90, 0.26, 0.3); tone('sine', 140, 40, 0.2, 0.5); },
     thud() { tone('sine', 95, 35, 0.16, 0.6); noise(0.05, 0.2, 'lowpass', 600); },
     select() { tone('square', 660, 660, 0.05, 0.14); },
     confirm() { const t = ctx.currentTime; [659, 784, 988, 1319].forEach((f, i) => tone('square', f, f, 0.09, 0.14, t + i * 0.06)); },

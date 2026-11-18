@@ -369,6 +369,8 @@
     jack: {
       rate: 10, swing: 0.6,
       guard: K({ lean: 0.1, fs: 0.55, fe: 1.6, bs: -0.1, be: 1.9, ft: 0.3, fk: 0.25, bt: -0.3, bk: 0.1 }),
+      // Block: both forearms raised in front of the face, knees bent, hunched behind the guard.
+      block: K({ lean: 0.28, ox: -1, fs: 1.15, fe: 2.35, bs: 0.95, be: 2.45, ft: 0.5, fk: 0.55, bt: -0.4, bk: 0.35 }),
       // Jump: arms up and knees tucked on the way up, legs reaching for the floor on the way down.
       jump: {
         up: K({ lean: 0.05, fs: 2.3, fe: 0.8, bs: 1.9, be: 0.9, ft: 0.95, fk: 1.5, bt: 0.2, bk: 0.8 }),
@@ -493,6 +495,8 @@
         if (t < hold) return t < a0 + 0.07 ? Object.assign({ fx: d.anim }, k.hit) : k.hit;
         return mix(k.hit, g, (t - hold) / (d.dur - hold));
       }
+      case 'block': // raise the guard in a few frames, then hold it (only Jack has a block pose)
+        return set.block ? mix(g, set.block, t / 0.07) : g;
       case 'hurt': return mix(COMMON.hurt, g, (t - 0.15) / 0.25);
       case 'fall': return COMMON.fall;
       case 'down':

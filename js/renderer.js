@@ -107,6 +107,12 @@
       if (f.state === 'special' && f.stateT < 0.5) drawAura(ctx, f, g.t);
       const zone = g.era.lights.find((l) => f.x < l.to);
       S.draw(ctx, f, f.x, f.y - f.z, zone && zone.color);
+      // Jack's guard meter, over his head while he is blocking or it is not full (red when broken)
+      if (f === g.player && f.hp > 0 && (f.state === 'block' || f.guard < f.guardMax)) {
+        const bx = Math.round(f.x) - 9, by = Math.round(f.y - f.z) - 62, locked = f.blockLock > 0;
+        rect(ctx, bx - 1, by - 1, 20, 4, '#12081c');
+        rect(ctx, bx, by, Math.round(18 * f.guard / f.guardMax), 2, locked ? '#ff3b30' : '#b04dff');
+      }
       // mini life bar over regular enemies that were hit recently
       if (f.team === 'enemy' && !f.isBoss && f.barT > 0 && f.hp > 0) {
         const bx = Math.round(f.x) - 9, by = Math.round(f.y - f.z) - 62;
@@ -213,18 +219,19 @@
     T.shadow(ctx, 'CONTROLS', 240, 26, '#ffe14a', 3, 'center', '#b0241e');
     const rows = [
       ['MOVE', 'W A S D  /  ARROWS'], ['PUNCH', 'J'], ['KICK', 'K'], ['JUMP', 'SPACE'],
-      ['SOLO', 'L (WHEN CHARGED)'], ['START', 'ENTER'], ['PAUSE', 'ESC'], ['SOUND', 'M'],
+      ['BLOCK', 'I / SHIFT (HOLD)'], ['SOLO', 'L (WHEN CHARGED)'], ['START', 'ENTER'], ['PAUSE', 'ESC'], ['SOUND', 'M'],
     ];
     rows.forEach((r, i) => {
-      const y = 56 + i * 14;
+      const y = 46 + i * 13;
       T.shadow(ctx, r[0], 150, y, '#28dcff', 1, 'right');
       T.draw(ctx, '.......', 160, y, '#4a3d66');
       T.shadow(ctx, r[1], 212, y, '#f4f0e8');
     });
-    T.draw(ctx, 'PUNCH X3 = COMBO.  JUMP + PUNCH/KICK = FLYING KICK', 240, 172, '#ff9ad0', 1, 'center');
-    T.draw(ctx, 'KOS CHARGE THE SOLO. SMASH CRATES FOR FOOD AND POWER', 240, 184, '#ff9ad0', 1, 'center');
-    T.draw(ctx, 'JUMP OR SIDESTEP (W / S) TO DODGE SHOCKWAVES', 240, 196, '#ff9ad0', 1, 'center');
-    T.draw(ctx, 'TOUCH: STICK ON THE LEFT, BUTTONS ON THE RIGHT', 240, 210, '#7d6f9c', 1, 'center');
+    T.draw(ctx, 'PUNCH X3 = COMBO.  JUMP + PUNCH/KICK = FLYING KICK', 240, 168, '#ff9ad0', 1, 'center');
+    T.draw(ctx, 'BLOCK FACING A FOE: HEAVY HITS STAGGER, A DRAINED GUARD BREAKS', 240, 180, '#ff9ad0', 1, 'center');
+    T.draw(ctx, 'KOS CHARGE THE SOLO. SMASH CRATES FOR FOOD AND POWER', 240, 192, '#ff9ad0', 1, 'center');
+    T.draw(ctx, 'JUMP OR SIDESTEP (W / S) TO DODGE SHOCKWAVES', 240, 204, '#ff9ad0', 1, 'center');
+    T.draw(ctx, 'TOUCH: STICK ON THE LEFT, BUTTONS ON THE RIGHT', 240, 218, '#7d6f9c', 1, 'center');
     if (((g.t * 2.5) | 0) % 2 === 0) T.shadow(ctx, 'PRESS ENTER TO GO BACK', 240, 232, '#ffe14a', 1, 'center');
   }
 

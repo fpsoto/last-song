@@ -222,6 +222,20 @@
       return;
     }
 
+    // A blow absorbed by Jack's guard: a small ping instead of the full impact (the player sets
+    // `hitResult` in takeHit, so combat.js still knows nothing about blocking). A chip KO falls
+    // through to the normal presentation below.
+    if (target.team === 'player' && target.hitResult === 'block' && !ko) {
+      const fx = target.x + target.facing * 10, fy = target.y - target.z - 32;
+      LS.Effects.ring(fx, fy, 14);
+      LS.Effects.spark(fx, fy, false);
+      LS.Effects.text(target.x, target.y - 72, 'BLOCK', '#b04dff');
+      G.hitstop = 0.03;
+      LS.Camera.shake(def.heavy ? 2.5 : 0.8);
+      LS.Audio.sfx('block');
+      return;
+    }
+
     const heavy = !!def.heavy || ko;
     const dir = attacker ? attacker.facing : (target.facing * -1);
     LS.Effects.spark(target.x - dir * 5, target.y - target.z - (def.hitY || 30), heavy);
@@ -240,6 +254,10 @@
       }
     } else {
       LS.Audio.sfx('hurt');
+      if (target.hitResult === 'break') { // the guard could not take it
+        LS.Audio.sfx('guardbreak');
+        LS.Effects.text(target.x, target.y - 72, 'GUARD BREAK!', '#ff3b30');
+      }
       if (!G.lowWarned && target.hp > 0 && target.hp < target.maxHp * 0.3) {
         G.lowWarned = true;
         G.say(G.era.quips.low, 0.8);

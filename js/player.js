@@ -22,6 +22,24 @@
   // The "Last Solo": shockwave that hits everything close to Jack (resolved in game.js).
   const SOLO = { windup: 0.5, dur: 1.0, invuln: 1.05 };
 
+  /* The block (hold I / Shift / the BLOCK button). All the tuning lives here:
+     - It only covers blows coming from the front, so Jack has to face the attacker.
+     - Light blows: damage x light, no flinch (Jack only slides back a little).
+     - Heavy blows (def.heavy or def.knockdown: the roadie's haymaker, the boss, shockwaves):
+       damage x heavy and a short stagger out of the guard, but never a knockdown.
+     - Every blocked blow drains the guard meter (damage x cost). A blow the guard cannot pay for
+       breaks it: it lands in full and the block is locked for `lockout` seconds. The guard only
+       refills while NOT blocking (after `regenDelay`), so turtling in a crowd wears out fast. */
+  const BLOCK = {
+    guardMax: 60, regen: 22, regenDelay: 0.6,
+    minGuard: 8,            // the guard cannot be raised with less than this left (no empty-guard turtling)
+    startup: 0.07,          // seconds before the raised arms actually protect
+    light: 0.2, heavy: 0.5, // fraction of the damage that gets through
+    costLight: 1.4, costHeavy: 2.4,
+    slide: 0.3, heavyKb: 0.5, heavyStun: 0.22,
+    lockout: 1.0,
+  };
+
   class Player extends LS.Fighter {
     constructor(x, y) {
       super('jack', x, y, { name: 'JACK RYDER', team: 'player', hp: 100, getupInvuln: 0.9, downTime: 0.55 });
@@ -35,10 +53,28 @@
       this.powerMax = 100;
       this.fired = false;    // has the current solo already released its blast?
       this.god = LS.params.get('god') === '1';
+      this.guard = this.guardMax = BLOCK.guardMax; // block meter, see BLOCK above
+      this.guardT = 0;       // time until the guard starts refilling
+      this.blockLock = 0;    // > 0: the guard is broken and can't be raised yet
+      this.hitResult = null; // 'block' | 'break' | null: what the last hit did (read by game.onHit)
+    }
+
+    /* Is a blow travelling in direction `dir` stopped by the raised guard? Jack must face it. */
+    canBlock(dir) {
+      return this.state === 'block' && !this.air && this.z <= 0 && this.stateT >= BLOCK.startup && dir === -this.facing;
     }
 
     takeHit(def, dir) {
       if (this.god) return false;
+      this.hitResult = null;
+      if (this.canBlock(dir)) {
+        const heavy = !!(def.heavy || def.knockdown);
+        const cost = def.dmg * (heavy ? BLOCK.costHeavy : BLOCK.costLight);
+        if (this.guard >= cost) return this.blockHit(def, dir, heavy, cost);
+        // The guard can't pay for this blow: it breaks, and the hit lands in full below.
+        this.guard = 0; this.blockLock = BLOCK.lockout; this.guardT = BLOCK.regenDelay;
+        this.hitResult = 'break';
+      }
       this.combo = 0; this.chainOk = false;
       // Hit in mid-air: always get knocked down, and hand the vertical motion to the fall state.
       if (this.air || this.z > 0) {
@@ -46,6 +82,21 @@
         this.air = false; this.vz = 0;
       }
       return super.takeHit(def, dir);
+    }
+
+    /* A blow that the guard absorbs. Returns true only if the chip damage still kills Jack. */
+    blockHit(def, dir, heavy, cost) {
+      this.guard -= cost; this.guardT = BLOCK.regenDelay;
+      this.hitResult = 'block';
+      const dmg = Math.max(1, Math.round(def.dmg * (heavy ? BLOCK.heavy : BLOCK.light)));
+      if (heavy || this.hp - dmg <= 0) {
+        // Staggered out of the guard (no knockdown), or the chip damage was lethal.
+        const d = Object.assign({}, def, { dmg, knockdown: false, stun: BLOCK.heavyStun, kb: (def.kb || 60) * BLOCK.heavyKb });
+        return super.takeHit(d, dir);
+      }
+      this.hp -= dmg; this.barT = 2.5;                  // light blow: the guard holds, Jack slides back
+      this.vx = dir * (def.kb || 60) * BLOCK.slide;
+      return false;
     }
 
     punch(next) {
@@ -73,6 +124,13 @@
       if (I.pressed.jump) { this.buf = 'jump'; this.bufT = 0.15; }
       if (I.pressed.special) { this.buf = 'special'; this.bufT = 0.2; }
       if (this.bufT <= 0) this.buf = null;
+
+      // Guard meter: refills only while the block is down, a moment after the last blocked blow.
+      // The delay counts down all the time; the refill is paused while the player is holding a usable guard.
+      if (this.blockLock > 0) this.blockLock -= dt;
+      if (this.guardT > 0) this.guardT -= dt;
+      const holding = I.down.block && this.blockLock <= 0 && this.guard >= BLOCK.minGuard;
+      if (!holding && this.guardT <= 0 && this.guard < this.guardMax) this.guard = Math.min(this.guardMax, this.guard + BLOCK.regen * dt);
 
       if (this.updateCommon(dt, g)) return;
 
@@ -149,6 +207,19 @@
         this.buf = null; this.chainOk = false;
         return;
       }
+
+      // Guard: held, on the ground, once any buffered action above has had its chance (so a punch,
+      // a jump or the solo can cancel it). Jack can turn to face a foe but can't walk while guarding.
+      if (I.down.block && this.blockLock <= 0 && (this.state === 'block' || this.guard >= BLOCK.minGuard)) {
+        if (this.state !== 'block') { this.setState('block'); this.combo = 0; this.chainOk = false; this.vx = 0; }
+        this.moving = false;
+        const turn = (I.down.right ? 1 : 0) - (I.down.left ? 1 : 0);
+        if (turn) this.facing = turn;
+        this.x += this.vx * dt;                       // slide after a blocked blow
+        this.vx -= this.vx * Math.min(1, 9 * dt);
+        return;
+      }
+      if (this.state === 'block') this.setState('idle');
 
       // Movement on the floor plane (normalised so diagonals aren't faster).
       const mx = (I.down.right ? 1 : 0) - (I.down.left ? 1 : 0);
