@@ -468,6 +468,16 @@
     return Object.assign({}, g, { bob: breath > 0.2 ? 1 : 0, fe: g.fe + (breath > 0 ? 0.08 : 0), be: g.be - (breath > 0 ? 0.06 : 0) });
   }
 
+  /* Jack idling on the menu stage, cycling every 12 s: nodding, tapping a foot, strumming. The
+     caller sets `beat` (see Audio.beat) so he moves in time with the music. */
+  function menuPose(set, f) {
+    const p = idle(set, f.animT), cyc = f.animT % 12, b = f.beat || 0, down = (b % 1) < 0.5;
+    if (cyc < 4) { p.bob = down ? 1 : 0; p.lean += down ? 0.1 : -0.02; p.hurt = 0; }                    // nod
+    else if (cyc < 8) { p.ft = down ? 0.12 : 0.55; p.fk = down ? 0.3 : 0.95; }                           // foot tap
+    else { p.fs = 0.9 + Math.sin(b * Math.PI * 2) * 0.45; p.fe = 1.1 + Math.sin(b * Math.PI * 2) * 0.2; } // strum: one stroke per beat
+    return p;
+  }
+
   const STEP = Math.PI / 4; // walk cycle snapped to 8 distinct frames, like hand-drawn sprites
 
   /* Picks the pose for a fighter from its state machine. */
@@ -510,6 +520,7 @@
         if (t < 0.65) return set.special.slam;
         return mix(set.special.slam, g, (t - 0.65) / 0.35);
       case 'taunt': return set.taunt || g;
+      case 'menu': return menuPose(set, f);
       default:
         return f.moving ? walk(set, Math.floor(f.animT * set.rate / STEP) * STEP) : idle(set, f.animT);
     }

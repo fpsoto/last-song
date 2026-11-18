@@ -19,7 +19,7 @@
 
   const G = (LS.game = {
     state: 'title', stateT: 0, t: 0,
-    menu: 0, introIndex: 0, introT: 0,
+    menu: 0, opt: 0, menuMsgT: 0, controlsFrom: 'title', introIndex: 0, introT: 0,
     era: null, player: null, enemies: [], boss: null, projectiles: [], props: [],
     breakables: [], items: [], solids: [],
     phase: 'advance', phaseT: 0, waveIndex: 0, pending: [],
@@ -62,7 +62,37 @@
     { at: 8.2, until: 9.4, sfx: 'riff' },     // the title lands on a power chord
   ];
   G.startIntro = function () { startCues(INTRO_CUES); G.setState('intro'); };
-  G.endIntro = function () { LS.Audio.stopMusic(); G.setState('title'); };
+  G.endIntro = function () { G.enterTitle(); };
+
+  /* The main menu: an empty rock stage with its own slow theme, which the stage lights pulse to. */
+  G.enterTitle = function () { G.setState('title'); LS.Audio.playMusic(LS.MENU_MUSIC); };
+
+  // Menu layout (shared with the renderer, so clicks and taps hit what is drawn).
+  G.MENU = {
+    items: ['PLAY', 'LEVEL SELECT', 'OPTIONS', 'CREDITS'],
+    locked: [false, true, false, false],   // LEVEL SELECT stays locked until the campaign can unlock levels (#31)
+    box: { x: 292, y: 106, w: 176 }, rowY: 114, rowH: 22,
+  };
+  G.OPTIONS_ROWS = ['SOUND', 'CONTROLS', 'BACK'];
+  const OPT_Y = 104, OPT_H = 24;
+  G.OPT = { y: OPT_Y, h: OPT_H };
+
+  /* Which menu row is at canvas point (x, y)? -1 for none. */
+  G.menuHit = function (x, y) {
+    const m = G.MENU;
+    if (x < m.box.x || x > m.box.x + m.box.w) return -1;
+    const i = Math.floor((y - (m.rowY - 4)) / m.rowH);
+    return i >= 0 && i < m.items.length ? i : -1;
+  };
+
+  G.menuSelect = function (i) {
+    const A = LS.Audio;
+    if (G.MENU.locked[i]) { A.sfx('denied'); G.menuMsgT = 2.2; return; }
+    A.sfx('strum');
+    if (i === 0) G.startLevel();
+    else if (i === 2) { G.opt = 0; G.setState('options'); }
+    else if (i === 3) G.setState('credits');
+  };
 
   G.init = function () {
     // ?level=ID picks a level graph, ?seg=ID starts straight in one of its segments (any route).
@@ -90,6 +120,7 @@
     else if (screen) G.setState(screen);
     // The game boots into the splash unless a dev flag asks for something else (?splash=0 goes to the menu).
     if (!screen && LS.params.get('start') !== '1' && LS.params.get('splash') !== '0') G.startSplash();
+    if (G.state === 'title') LS.Audio.playMusic(LS.MENU_MUSIC);   // booted straight into the menu (?splash=0)
   };
 
   /* Speech bubble over Jack's head. */
@@ -127,7 +158,7 @@
   G.toTitle = function () {
     G.era = LS.resolveSegment(G.level, G.startSeg); G.segId = G.startSeg;
     if (G.builtSeg !== G.startSeg) { LS.Background.build(G.era); G.builtSeg = G.startSeg; }
-    G.setState('title');
+    G.enterTitle();
   };
 
   G.startLevel = function () {
@@ -501,25 +532,46 @@
       case 'splash':
         // Enter, Esc or a tap skips it. Checked first, so the key that also unlocks the audio
         // does not trigger a cue on the very frame the splash ends.
-        if (ok || I.pressed.pause || G.stateT > SPLASH_END) { G.endSplash(); break; }
+        if (ok || I.pressed.pause || I.pressed.click || G.stateT > SPLASH_END) { G.endSplash(); break; }
         playCues();
         break;
 
-      case 'title':
-        if (I.pressed.up || I.pressed.down) { G.menu = 1 - G.menu; A.sfx('select'); }
-        if (ok || I.pressed.punch) {
-          A.sfx('confirm');
-          if (G.menu === 0) G.startLevel();
-          else G.setState('controls');
-        }
+      case 'title': {
+        const n = G.MENU.items.length;
+        if (G.menuMsgT > 0) G.menuMsgT -= dt;
+        if (I.pressed.up) { G.menu = (G.menu + n - 1) % n; A.sfx('pluck'); }
+        if (I.pressed.down) { G.menu = (G.menu + 1) % n; A.sfx('pluck'); }
+        // A click or tap on a row selects it; a tap elsewhere confirms the highlighted one (touch has no Enter).
+        const c = I.pressed.click, hit = c ? G.menuHit(c.x, c.y) : -1;
+        if (hit >= 0) { G.menu = hit; G.menuSelect(hit); }
+        else if (I.pressed.tap || (!c && (ok || I.pressed.punch))) G.menuSelect(G.menu);
+        break;
+      }
+
+      case 'options': {
+        const n = G.OPTIONS_ROWS.length, back = () => { A.sfx('pluck'); G.setState('title'); };
+        if (I.pressed.up) { G.opt = (G.opt + n - 1) % n; A.sfx('pluck'); }
+        if (I.pressed.down) { G.opt = (G.opt + 1) % n; A.sfx('pluck'); }
+        const c = I.pressed.click;
+        let pick = -1;
+        if (c) { const i = Math.floor((c.y - (OPT_Y - 4)) / OPT_H); if (c.x > 100 && c.x < 380 && i >= 0 && i < n) { G.opt = i; pick = i; } }
+        if (pick < 0 && (I.pressed.tap || (!c && (ok || I.pressed.punch)))) pick = G.opt;   // a tap elsewhere confirms the highlighted row
+        if (pick === 0) { A.toggleMute(); A.sfx('tap'); }      // SOUND: ON / OFF
+        else if (pick === 1) { A.sfx('strum'); G.controlsFrom = 'options'; G.setState('controls'); }
+        else if (pick === 2 || I.pressed.pause) back();
+        break;
+      }
+
+      case 'credits':
+        if (ok || I.pressed.pause || I.pressed.punch || I.pressed.click) { A.sfx('pluck'); G.setState('title'); }
         break;
 
       case 'controls':
-        if (ok || I.pressed.pause || I.pressed.punch) { A.sfx('select'); G.setState('title'); }
+        if (ok || I.pressed.pause || I.pressed.punch || I.pressed.click) { A.sfx('pluck'); G.setState(G.controlsFrom || 'title'); G.controlsFrom = 'title'; }
         break;
 
       case 'intro':
-        if (ok || I.pressed.pause || G.stateT > INTRO_END) { G.endIntro(); break; }   // Enter, Esc or a tap skips it
+        if (ok || I.pressed.pause || I.pressed.click || G.stateT > INTRO_END) { G.endIntro(); break; }   // Enter, Esc, a click or a tap skips it
         playCues();
         break;
 

@@ -77,6 +77,21 @@
     kick: 'x..x..x.x..x..x.', snare: '....x.......x..x', hat: 'xxxxxxxxxxxxxxxx',
   };
 
+  // The title menu: slow and moody, so the stage lights have room to breathe.
+  const slow = (r) => [r, _, _, _, r, _, _, _, r, _, _, _, r + 7, _, r + 5, _];
+  const menuTheme = {
+    bpm: 96, root: 82.41,
+    bass: bars(slow, [0, 0, 5, 3]),
+    lead: [
+      12, _, _, _, _, _, 10, _, 7, _, _, _, _, _, _, _,
+      12, _, _, _, _, _, 15, _, 14, _, 12, _, 10, _, _, _,
+      17, _, _, _, 15, _, _, _, 12, _, _, _, 10, _, _, _,
+      14, _, _, 12, _, _, 10, _, 7, _, _, _, _, _, _, _,
+    ],
+    kick: 'x.......x.x.....', snare: '....x.......x...', hat: '..x...x...x...x.',
+  };
+  LS.MENU_MUSIC = menuTheme;
+
   const stub = (year, theme) => ({ year, theme, available: false, title: 'COMING SOON' });
 
   // The era registry only tells the menus what exists; a playable era points at its level graph.
