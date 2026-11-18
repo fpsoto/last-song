@@ -14,6 +14,7 @@
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     try { ctx = new AC(); } catch (e) { ctx = null; return; }
+    if (ctx.state === 'suspended') ctx.resume();   // some browsers create it suspended even inside a gesture
 
     master = ctx.createGain();
     master.gain.value = A.muted ? 0 : 0.8;
@@ -38,6 +39,10 @@
     const data = noiseBuf.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
   };
+
+  /* Browsers keep audio suspended until a key press or tap. Callers that want a sound at a precise
+     moment (the splash) use this to wait for it instead of firing into the void. */
+  A.running = function () { return !!ctx && ctx.state === 'running'; };
 
   function label() {
     const b = document.getElementById('mute');
@@ -92,6 +97,20 @@
     heavy() { noise(0.17, 0.55, 'lowpass', 1500); tone('sine', 160, 40, 0.24, 0.7); tone('square', 320, 60, 0.12, 0.18); },
     hurt() { tone('sawtooth', 340, 110, 0.18, 0.22); noise(0.06, 0.25, 'lowpass', 1800); },
     ko() { tone('square', 520, 60, 0.42, 0.2); noise(0.2, 0.2, 'lowpass', 900); },
+    // Splash: a jack plugged into a guitar (thump, crackle, mains hum) ...
+    plugin() {
+      const t = ctx.currentTime;
+      noise(0.09, 0.55, 'lowpass', 380, t); tone('sine', 75, 48, 0.28, 0.55, t);
+      noise(0.05, 0.25, 'highpass', 3200, t + 0.06); noise(0.04, 0.2, 'highpass', 2600, t + 0.13);
+      tone('sine', 60, 60, 0.7, 0.14, t + 0.1);
+    },
+    // ... and an amplifier switching on (relay click, then the valves warming up).
+    ampOn() {
+      const t = ctx.currentTime;
+      noise(0.03, 0.5, 'highpass', 2000, t); tone('square', 180, 90, 0.05, 0.25, t);
+      tone('sawtooth', 55, 110, 0.9, 0.1, t + 0.08, distBus); tone('sine', 60, 60, 1.1, 0.2, t + 0.08);
+      noise(0.9, 0.08, 'bandpass', 5000, t + 0.1);
+    },
     // A blow absorbed by the guard: a dull, metallic knock (clearly not a hit, not a miss).
     block() { noise(0.06, 0.3, 'bandpass', 1900); tone('triangle', 540, 330, 0.09, 0.26); tone('square', 120, 70, 0.07, 0.14); },
     // The guard gives way: a harsher crack than a normal hit.

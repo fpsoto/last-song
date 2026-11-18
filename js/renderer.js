@@ -192,6 +192,75 @@
     ctx.restore();
   }
 
+  // ---------------------------------------------------------------------
+  // Splash: the developer card and the LAST SONG card on an old amplifier
+  // ---------------------------------------------------------------------
+  let ampTex = null;
+  /* The front of an old amp, painted once: grille cloth (a fine cross-hatch), a dark vignette,
+     metal trim at the top and a row of knobs. All code, no image. */
+  function ampTexture() {
+    if (ampTex) return ampTex;
+    ampTex = LS.makeCanvas(LS.W, LS.H);
+    const c = ampTex.getContext('2d'), W = LS.W, H = LS.H;
+    c.fillStyle = '#0d0907'; c.fillRect(0, 0, W, H);
+    for (let y = 0; y < H; y += 3) { c.fillStyle = 'rgba(70,52,34,0.35)'; c.fillRect(0, y, W, 1); }   // weft
+    for (let x = 0; x < W; x += 3) { c.fillStyle = 'rgba(0,0,0,0.45)'; c.fillRect(x, 0, 1, H); }      // warp
+    for (let y = 1; y < H; y += 6) for (let x = 1; x < W; x += 6) { c.fillStyle = 'rgba(120,92,60,0.18)'; c.fillRect(x, y, 2, 1); }
+    // metal trim along the top with knobs
+    c.fillStyle = '#26221e'; c.fillRect(0, 0, W, 22);
+    c.fillStyle = '#4a443c'; c.fillRect(0, 0, W, 1); c.fillStyle = '#0a0806'; c.fillRect(0, 22, W, 2);
+    for (let i = 0; i < 6; i++) {
+      const kx = 60 + i * 52;
+      c.fillStyle = '#0a0806'; c.fillRect(kx - 6, 5, 12, 12);
+      c.fillStyle = '#6a6258'; c.fillRect(kx - 5, 6, 10, 10);
+      c.fillStyle = '#d8d0b0'; c.fillRect(kx - 1, 6, 2, 5);
+    }
+    // vignette: the amp is lit from the middle, the corners fall into the dark
+    const gr = c.createRadialGradient(W / 2, H * 0.58, 40, W / 2, H * 0.58, W * 0.62);
+    gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.85)');
+    c.fillStyle = gr; c.fillRect(0, 0, W, H);
+    return ampTex;
+  }
+
+  /* The developer's placeholder logo: a die (a "game" doctor's mascot) over the studio name. */
+  function drawStudioCard(g, ctx, t) {
+    const T = LS.Text, cx = 240;
+    const a = Math.min(1, t / 0.5) * Math.min(1, (2.4 - t) / 0.4);
+    ctx.globalAlpha = Math.max(0, a);
+    const x = cx - 20, y = 78;
+    rect(ctx, x - 2, y - 2, 44, 44, '#2a0a10'); rect(ctx, x, y, 40, 40, '#f4f0e8'); rect(ctx, x, y, 40, 3, '#ffffff');
+    rect(ctx, x, y + 37, 40, 3, '#bdb6a6'); rect(ctx, x + 37, y, 3, 40, '#bdb6a6');
+    for (const [px, py] of [[8, 8], [28, 8], [18, 18], [8, 28], [28, 28]]) rect(ctx, x + px, y + py, 5, 5, '#c0262e');
+    rect(ctx, cx - 2, y - 14, 4, 10, '#c0262e'); rect(ctx, cx - 5, y - 11, 10, 4, '#c0262e'); // the doctor's cross
+    T.shadow(ctx, 'THE DR JUEGO STUDIO', cx, 134, '#f4f0e8', 2, 'center', '#c0262e');
+    T.draw(ctx, 'PRESENTS', cx, 156, '#7d6f9c', 1, 'center');
+    ctx.globalAlpha = 1;
+  }
+
+  /* LAST SONG on the amp: the power LED lights up with the switch-on sound, then the logo flickers in. */
+  function drawAmpCard(g, ctx, t) {
+    const T = LS.Text, on = t > 0.1;
+    ctx.globalAlpha = Math.min(1, t / 0.4) * Math.min(1, (2.8 - t) / 0.4);
+    ctx.drawImage(ampTexture(), 0, 0);
+    const led = on && (t < 0.35 || ((g.t * 24) | 0) % 9 !== 0);
+    rect(ctx, 412, 30, 14, 8, '#1a0606');
+    rect(ctx, 414, 32, 10, 4, led ? '#ff3b30' : '#3a0c0a');
+    if (led) { ctx.globalAlpha *= 0.25; rect(ctx, 408, 28, 22, 12, '#ff3b30'); ctx.globalAlpha = Math.min(1, t / 0.4) * Math.min(1, (2.8 - t) / 0.4); }
+    // the logo warms up: a few flickers, then steady
+    const k = Math.max(0, Math.min(1, (t - 0.3) / 0.7)), flick = t < 1.0 && ((g.t * 30) | 0) % 3 === 0;
+    ctx.globalAlpha *= flick ? 0.35 : k;
+    logo(ctx, g, 108);
+    ctx.globalAlpha = 1;
+  }
+
+  function drawSplash(g, ctx) {
+    rect(ctx, 0, 0, LS.W, LS.H, '#000');
+    const t = g.stateT;
+    if (t < 2.4) drawStudioCard(g, ctx, t);
+    else if (t > 2.6) drawAmpCard(g, ctx, t - 2.6);
+    if (((g.t * 2) | 0) % 2 === 0) LS.Text.draw(ctx, 'ENTER - SKIP', 474, 258, '#4a3d66', 1, 'right');
+  }
+
   function drawTitle(g, ctx) {
     const T = LS.Text, blink = ((g.t * 2.5) | 0) % 2 === 0;
     backdrop(g, ctx, 0.66);
@@ -290,6 +359,7 @@
   R.draw = function (g, ctx) {
     ctx.imageSmoothingEnabled = false;
     switch (g.state) {
+      case 'splash': drawSplash(g, ctx); break;
       case 'title': drawTitle(g, ctx); break;
       case 'controls': drawControls(g, ctx); break;
       case 'intro': drawIntro(g, ctx); break;
