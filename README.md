@@ -86,7 +86,7 @@ js/
 
 ### Adding a new decade
 
-The game is organised around **eras** (`js/levels.js`). 1950, 1960 and 1970 are already registered as stubs. Each playable era points at a **level graph**: segments of scenery linked by exits, where an exit with several options is a physical fork chosen with the depth axis (the format is documented at the top of `levels.js`). To make an era playable:
+The game is organised around **eras** (`js/levels.js`). 1950, 1960 and 1970 are already registered as stubs. Each playable era points at a **level graph**: segments of scenery linked by exits, where an exit with several options is a physical fork: one doorway per option on the floor, chosen by standing in front of it and pressing ENTER or tapping (the format is documented at the top of `levels.js`). To make an era playable:
 
 1. Add a scene to `LS.Scenes` in `background.js` (`build`, `dynamic`, `foreground`, `prop`).
 2. Add its enemy types to `LS.ENEMY_TYPES` in `enemy.js` and their look/poses in `sprites.js`.
