@@ -24,11 +24,25 @@
     breakables: [], items: [], solids: [],
     phase: 'advance', phaseT: 0, waveIndex: 0, pending: [],
     hitstop: 0, slowT: 0, score: 0, cardT: 0, noCharge: false,
-    bubble: null, target: null, targetT: 0, lowWarned: false,
+    bubble: null, target: null, targetT: 0, lowWarned: false, splashCues: [],
     level: null, segId: null, startSeg: null, builtSeg: null, route: [], pendingSeg: null, fade: 0,
   });
 
   G.setState = function (s) { G.state = s; G.stateT = 0; };
+
+  /* Boot splash: the developer card, then the LAST SONG card on an old amp. The sounds that go
+     with it can only play once the browser allows audio (first key or tap), so each cue has a
+     window: if audio becomes available inside it, the cue plays late rather than never. */
+  const SPLASH_END = 5.4;
+  const SPLASH_CUES = [
+    { at: 0.4, until: 2.4, sfx: 'plugin' },     // card 1: a guitar is plugged in
+    { at: 2.7, until: 5.0, sfx: 'ampOn' },      // card 2: the amp switches on
+  ];
+  G.startSplash = function () {
+    G.splashCues = SPLASH_CUES.map((c) => Object.assign({ done: false }, c));
+    G.setState('splash');
+  };
+  G.endSplash = function () { G.setState('title'); };
 
   G.init = function () {
     // ?level=ID picks a level graph, ?seg=ID starts straight in one of its segments (any route).
@@ -51,7 +65,10 @@
     }
     // ?screen=controls|intro|paused opens a given screen directly (used for visual checks).
     const screen = LS.params.get('screen');
-    if (screen) G.setState(screen);
+    if (screen === 'splash') G.startSplash();
+    else if (screen) G.setState(screen);
+    // The game boots into the splash unless a dev flag asks for something else (?splash=0 goes to the menu).
+    if (!screen && LS.params.get('start') !== '1' && LS.params.get('splash') !== '0') G.startSplash();
   };
 
   /* Speech bubble over Jack's head. */
@@ -460,6 +477,15 @@
     const ok = I.pressed.start || I.pressed.tap; // "confirm" in menus
 
     switch (G.state) {
+      case 'splash':
+        // Enter, Esc or a tap skips it. Checked first, so the key that also unlocks the audio
+        // does not trigger a cue on the very frame the splash ends.
+        if (ok || I.pressed.pause || G.stateT > SPLASH_END) { G.endSplash(); break; }
+        for (const c of G.splashCues) {
+          if (!c.done && G.stateT >= c.at && G.stateT <= c.until && A.running()) { c.done = true; A.sfx(c.sfx); }
+        }
+        break;
+
       case 'title':
         if (I.pressed.up || I.pressed.down) { G.menu = 1 - G.menu; A.sfx('select'); }
         if (ok || I.pressed.punch) {
