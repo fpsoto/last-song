@@ -55,6 +55,26 @@
     lines.forEach((l, i) => T.draw(ctx, l, x + 4, y + 4 + i * 7, '#12081c'));
   }
 
+  /* Generic cue for a segment's exit, drawn on the floor in world space: a glowing line at the
+     crossing point with one neon sign per option, placed at the depth band that selects it.
+     It is a stand-in so every route can be played and tested now; scenes are expected to
+     draw their own doors, streets and passages on top of (or instead of) it. */
+  function drawExit(ctx, g) {
+    const ex = g.era.exit;
+    if (!ex || g.phase !== 'advance' || g.waveIndex < g.era.waves.length) return;
+    const blink = ((g.t * 3) | 0) % 2 === 0, T = LS.Text;
+    for (let y = LS.FLOOR_TOP; y < LS.FLOOR_BOTTOM; y += 4) rect(ctx, ex.at, y, 2, 2, blink ? '#ffe14a' : '#ff2e88');
+    const many = ex.options.length > 1;
+    for (const o of ex.options) {
+      const mid = o.y ? Math.round((o.y[0] + o.y[1]) / 2) : Math.round((LS.FLOOR_TOP + LS.FLOOR_BOTTOM) / 2);
+      if (many) { // tick marks showing where one band ends and the next begins
+        rect(ctx, ex.at - 5, o.y[0], 5, 1, '#7d6f9c');
+        rect(ctx, ex.at - 5, o.y[1], 5, 1, '#7d6f9c');
+      }
+      T.shadow(ctx, (o.label || 'GO') + ' >', ex.at - 8, mid - 3, blink ? '#ffe14a' : '#28dcff', 1, 'right');
+    }
+  }
+
   function drawWorld(g, ctx) {
     const cam = LS.Camera, cx = Math.round(cam.x), S = LS.Sprites;
     const hot = g.phase === 'boss' || g.phase === 'bossIntro';
@@ -95,6 +115,7 @@
       }
     }
 
+    drawExit(ctx, g);
     for (const pr of g.projectiles) drawShockwave(ctx, pr, g.t);
     LS.Effects.draw(ctx);
     drawBubble(ctx, g);
@@ -127,7 +148,7 @@
     }
     ctx.strokeStyle = '#28dcff';
     for (const p of g.props) ctx.strokeRect(p.x - p.rx + 0.5, p.y - p.ry + 0.5, p.rx * 2, p.ry * 2);
-    LS.Text.draw(ctx, g.phase + ' W' + g.waveIndex + ' X' + (g.player.x | 0), LS.Camera.x + 4, 40, '#2ee86a');
+    LS.Text.draw(ctx, g.segId + ' ' + g.phase + ' W' + g.waveIndex + ' X' + (g.player.x | 0) + ' Y' + (g.player.y | 0), LS.Camera.x + 4, 40, '#2ee86a');
   }
 
   // ---------------------------------------------------------------------
@@ -268,6 +289,11 @@
       default:
         drawWorld(g, ctx);
         LS.HUD.draw(ctx, g);
+        if (g.fade > 0) { // segment transition: fade to black and back
+          ctx.globalAlpha = g.fade;
+          rect(ctx, 0, 0, LS.W, LS.H, '#000');
+          ctx.globalAlpha = 1;
+        }
         if (g.state === 'paused') drawPause(g, ctx);
         else if (g.state === 'gameover') drawGameOver(g, ctx);
         else if (g.state === 'victory') drawVictory(g, ctx);

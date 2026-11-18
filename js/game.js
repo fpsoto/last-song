@@ -3,11 +3,14 @@
    Screen states:  title -> controls
                    title -> intro -> playing <-> paused
                                      playing -> victory | gameover
+   A level is a graph of segments (levels.js); `era` below is the segment being played.
    Level phases (while playing):
-     advance    the way is open; walking past a trigger starts the next wave / the boss
+     advance    the way is open; walking past a trigger starts the next wave / the boss,
+                and once the waves are done the segment's exit (a door or a fork) opens
      wave       screen locked until every enemy of the wave is down
      bossIntro  scripted entrance, input frozen
      boss       the fight
+     transition fade out, load the next segment, fade in (input frozen)
      bossDead / playerDead   short pause before the result screen */
 (function () {
   'use strict';
@@ -22,13 +25,23 @@
     phase: 'advance', phaseT: 0, waveIndex: 0, pending: [],
     hitstop: 0, slowT: 0, score: 0, cardT: 0, noCharge: false,
     bubble: null, target: null, targetT: 0, lowWarned: false,
+    level: null, segId: null, startSeg: null, builtSeg: null, route: [], pendingSeg: null, fade: 0,
   });
 
   G.setState = function (s) { G.state = s; G.stateT = 0; };
 
   G.init = function () {
-    G.era = LS.getEra('1980');
-    LS.Background.build(G.era);
+    // ?level=ID picks a level graph, ?seg=ID starts straight in one of its segments (any route).
+    let levelId = LS.params.get('level') || LS.getEra('1980').level;
+    if (!LS.getLevel(levelId)) { console.error("unknown level '" + levelId + "', using 'lastbar'"); levelId = 'lastbar'; }
+    G.level = LS.getLevel(levelId);
+    LS.validateLevel(G.level, levelId).forEach((m) => console.error(m));
+    G.startSeg = LS.params.get('seg') || G.level.start;
+    if (!G.level.segments[G.startSeg]) { console.error("unknown segment '" + G.startSeg + "'"); G.startSeg = G.level.start; }
+    G.era = LS.resolveSegment(G.level, G.startSeg);
+    G.segId = G.startSeg;
+    LS.Background.build(G.era);        // backdrop of the title screen
+    G.builtSeg = G.segId;
     LS.Camera.reset(G.era.width);
     // Development shortcuts: ?start=1 jumps into the level, ?skip=N jumps to wave N / the boss.
     if (LS.params.get('start') === '1') {
@@ -44,23 +57,44 @@
   /* Speech bubble over Jack's head. */
   G.say = function (text, delay) { G.bubble = { text, t: 2.8, delay: delay || 0 }; };
 
-  G.startLevel = function () {
-    const era = G.era;
-    G.player = new LS.Player(era.start.x, era.start.y);
-    const hp = parseInt(LS.params.get('hp'), 10);
-    if (hp) G.player.hp = G.player.lagHp = hp;
-    const pw = parseInt(LS.params.get('power'), 10);
-    if (pw) G.player.power = Math.min(100, pw);
+  /* Builds a segment of the level graph: scenery, props, music, camera. `carry` is true when Jack
+     walks in from the previous segment (he keeps his health, score and depth, and only his x
+     resets); false for a fresh start. Nothing of the segment left behind survives, which is what
+     makes a route, once taken, unreachable again. */
+  G.loadSegment = function (id, carry) {
+    const era = LS.resolveSegment(G.level, id);
+    G.era = era; G.segId = id;
+    if (!carry) G.route = [];
+    G.route.push(id);
+    // The scene art is static, so a retry in the same segment (or the build done by init) reuses it.
+    if (G.builtSeg !== id) { LS.Background.build(era); G.builtSeg = id; }
     G.enemies = []; G.boss = null; G.projectiles = []; G.pending = []; G.items = [];
     G.props = era.props;
     G.breakables = era.breakables.map((b) => new LS.Breakable(b.type, b.x, b.y, b.drop));
     G.solids = G.props.concat(G.breakables);
     G.phase = 'advance'; G.phaseT = 0; G.waveIndex = 0;
-    G.hitstop = 0; G.slowT = 0; G.score = 0; G.cardT = 0; G.noCharge = false;
-    G.target = null; G.targetT = 0; G.lowWarned = false;
+    G.cardT = 0; G.target = null; G.targetT = 0; G.bubble = null;
     LS.Effects.reset();
     LS.Camera.reset(era.width);
     LS.Audio.playMusic(era.music);
+    if (carry) {
+      const p = G.player;
+      p.x = era.start.x; p.vx = 0; p.setState('idle');
+      p.y = LS.clamp(p.y, LS.FLOOR_TOP, LS.FLOOR_BOTTOM);
+    }
+  };
+
+  G.startLevel = function () {
+    G.player = new LS.Player(0, 0);
+    const hp = parseInt(LS.params.get('hp'), 10);
+    if (hp) G.player.hp = G.player.lagHp = hp;
+    const pw = parseInt(LS.params.get('power'), 10);
+    if (pw) G.player.power = Math.min(100, pw);
+    G.hitstop = 0; G.slowT = 0; G.score = 0; G.noCharge = false; G.lowWarned = false;
+    G.pendingSeg = null; G.fade = 0;
+    G.loadSegment(G.startSeg, false);        // a retry starts again from the level's first segment
+    const era = G.era;
+    G.player.x = era.start.x; G.player.y = era.start.y;
     G.say(era.quips.start, 3);
     // ?spawn=punk,roadie puts those enemies next to Jack right away (development aid)
     const spawn = LS.params.get('spawn');
@@ -79,13 +113,17 @@
     });
   }
 
-  /* Jump straight to wave n (0-based) or to the boss when n >= number of waves. */
+  /* What the player is walking towards: the next wave, else the boss, else the segment's exit. */
+  G.goal = function (era, n) { return era.waves[n] || era.boss || era.exit; };
+
+  /* Jump straight to wave n (0-based) or, when n >= number of waves, to the boss / the exit. */
   G.debugSkip = function (n) {
-    const era = G.era, next = era.waves[n] || era.boss;
+    const era = G.era, next = G.goal(era, n);
     G.enemies = []; G.pending = []; G.projectiles = [];
     G.waveIndex = Math.min(n, era.waves.length);
     G.phase = 'advance';
-    G.player.x = next.trigger - 30;
+    // an exit has no trigger: start the player just inside the locked screen, like the boss trigger
+    G.player.x = (next.trigger !== undefined ? next.trigger : next.lock + 60) - 30;
     LS.Camera.maxX = next.lock;
     LS.Camera.x = LS.clamp(G.player.x - 200, 0, next.lock);
     G.cardT = 3;
@@ -212,6 +250,14 @@
   // ---------------------------------------------------------------------
   // Level flow
   // ---------------------------------------------------------------------
+  /* Jack walked through an exit option: start the transition into its segment. */
+  G.takeExit = function (option) {
+    G.pendingSeg = option.to;
+    G.phase = 'transition'; G.phaseT = 0; G.fade = 0;
+    G.bubble = null;
+    LS.Audio.sfx('go');
+  };
+
   function updatePhase() {
     const era = G.era, cam = LS.Camera, p = G.player;
 
@@ -224,9 +270,15 @@
     switch (G.phase) {
       case 'advance': {
         const wave = era.waves[G.waveIndex];
-        const next = wave || era.boss;
+        const next = wave || era.boss || era.exit;
         cam.minX = 0;
         cam.maxX = next.lock; // the camera can't scroll past the next arena
+        if (!wave && !era.boss) {
+          // The segment's exit: no trigger, the screen just stops and the way out stays open.
+          // The depth (y) at which Jack crosses the line picks the option: a physical fork.
+          if (p.x > era.exit.at && p.hp > 0) G.takeExit(LS.pickExit(era.exit, p.y));
+          break;
+        }
         if (p.x > next.trigger) {
           G.phaseT = 0;
           cam.minX = cam.maxX = next.lock; // lock the screen
@@ -255,6 +307,23 @@
           G.say(era.quips.waves[G.waveIndex % era.quips.waves.length], 0.4);
           G.phase = 'advance'; G.phaseT = 0; G.waveIndex++;
           LS.Audio.sfx('go');
+        }
+        break;
+      }
+      case 'transition': {
+        // Fade to black, swap the segment while nothing is visible, fade back in.
+        const FADE = 0.45;
+        if (G.pendingSeg) {
+          G.fade = Math.min(1, G.phaseT / FADE);
+          if (G.fade >= 1) {
+            const id = G.pendingSeg;
+            G.pendingSeg = null;
+            G.loadSegment(id, true);
+            G.phase = 'transition'; G.phaseT = 0;   // loadSegment resets the phase: keep fading in
+          }
+        } else {
+          G.fade = Math.max(0, 1 - G.phaseT / FADE);
+          if (G.fade <= 0) { G.phase = 'advance'; G.phaseT = 0; }
         }
         break;
       }
@@ -310,7 +379,7 @@
     G.phaseT += dt;
 
     // --- fighters ---
-    const frozen = G.phase === 'bossIntro' || G.cardT < 1.0;
+    const frozen = G.phase === 'bossIntro' || G.phase === 'transition' || G.cardT < 1.0;
     if (frozen && (p.state === 'walk')) p.setState('idle');
     if (frozen) p.moving = false;
     p.update(dt, frozen ? NO_INPUT : I, G);

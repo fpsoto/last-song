@@ -74,7 +74,7 @@ js/
   player.js       Jack Ryder
   enemy.js        Roadie and Groupie (data-driven) + AI state machine
   boss.js         The King of Riffs (boss registry)
-  levels.js       era registry: waves, boss, music, texts
+  levels.js       level graphs (segments, forks), era registry, waves, boss, music, texts
   renderer.js     draws the world and every screen
   game.js         global state machine and level flow
   main.js         canvas scaling and game loop
@@ -82,12 +82,12 @@ js/
 
 ### Adding a new decade
 
-The game is organised around **eras** (`js/levels.js`). 1950, 1960 and 1970 are already registered as stubs. To make one playable:
+The game is organised around **eras** (`js/levels.js`). 1950, 1960 and 1970 are already registered as stubs. Each playable era points at a **level graph**: segments of scenery linked by exits, where an exit with several options is a physical fork chosen with the depth axis (the format is documented at the top of `levels.js`). To make an era playable:
 
 1. Add a scene to `LS.Scenes` in `background.js` (`build`, `dynamic`, `foreground`, `prop`).
 2. Add its enemy types to `LS.ENEMY_TYPES` in `enemy.js` and their look/poses in `sprites.js`.
 3. Add its boss class to `LS.BOSSES` in `boss.js`.
-4. Fill in the era entry in `levels.js` (palette, music patterns, waves, boss, texts) and set `available: true`.
+4. Describe its level in `levels.js` (segments with scenery, music patterns, waves and a boss or an exit, plus the shared defaults and texts), point its `LS.ERAS` entry at it and set `available: true`.
 
 ## Development flags
 
@@ -97,7 +97,9 @@ Append these to the URL:
 | --- | --- |
 | `?debug=1` | Draws hit boxes, shows state in the page title, enables keys `1` / `2` (skip to wave 2 / boss) and `3` (boss at 10 HP) |
 | `?start=1` | Skips the menus |
-| `?skip=N` | Starts at wave N+1 (`N` = 1 to 3) or at the boss (`N` = 4); needs `start=1` |
+| `?skip=N` | Starts at wave N+1 of the segment (`N` = 1 to 3), or at its boss / exit when `N` is past the last wave; needs `start=1` |
+| `?level=ID` | Plays another level graph (`lastbar` by default; `forktest` is a small fixture with both Level 4 forks) |
+| `?seg=ID` | Starts straight in a segment of the level, so any route can be reached directly (for example `?level=forktest&seg=pop&start=1`) |
 | `?power=100` | Starts with a full solo meter |
 | `?spawn=punk,roadie` | Puts those enemies next to Jack right away |
 | `?seq=jump:2,kick:2.2` | Presses those actions when the game clock reaches the given seconds |
