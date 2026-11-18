@@ -107,6 +107,12 @@
     heavy() { noise(0.17, 0.55, 'lowpass', 1500); tone('sine', 160, 40, 0.24, 0.7); tone('square', 320, 60, 0.12, 0.18); },
     hurt() { tone('sawtooth', 340, 110, 0.18, 0.22); noise(0.06, 0.25, 'lowpass', 1800); },
     ko() { tone('square', 520, 60, 0.42, 0.2); noise(0.2, 0.2, 'lowpass', 900); },
+    // Play transition: one big drum hit (kick, snare and a crash that rings out as the lights die).
+    drum() {
+      const t = ctx.currentTime;
+      tone('sine', 160, 40, 0.3, 0.9, t); tone('triangle', 220, 110, 0.12, 0.4, t);
+      noise(0.18, 0.55, 'highpass', 1800, t); noise(0.7, 0.25, 'highpass', 6000, t + 0.02);
+    },
     // Menu: a soft guitar pluck for moving, a power-chord strum for choosing, a dull knock for
     // "locked", and an amp-cabinet tap for toggles.
     pluck() { tone('triangle', 330, 300, 0.18, 0.2); tone('sawtooth', 331, 300, 0.12, 0.05); noise(0.02, 0.1, 'highpass', 3000); },

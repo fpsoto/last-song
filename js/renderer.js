@@ -322,9 +322,10 @@
 
   /* Stage, truss lights and the light show. `beat` comes from Audio.beat: every beat the cans
      flash and fade, the colours rotate every two beats and the downbeat of each bar hits harder. */
-  function drawMenuStage(g, ctx, beat) {
+  function drawMenuStage(g, ctx, beat, force) {   // force: 'flash' = every can at full blast, 'out' = lights off (play transition)
     ctx.drawImage(stageTexture(), 0, 0);
-    const pulse = 1 - (beat % 1), bar = Math.floor(beat) % 4 === 0, strength = (bar ? 1 : 0.62) * pulse * pulse;
+    if (force === 'out') return;
+    const pulse = force === 'flash' ? 1 : 1 - (beat % 1), bar = force === 'flash' || Math.floor(beat) % 4 === 0, strength = (bar ? 1 : 0.62) * pulse * pulse;
     for (let i = 0; i < CAN_X.length; i++) {
       const x = CAN_X[i], col = STAGE_COLS[(Math.floor(beat / 2) + i) % STAGE_COLS.length];
       const sway = Math.sin(g.t * 0.7 + i * 1.7) * 26, a = 0.1 + 0.42 * strength;
@@ -381,6 +382,30 @@
     if (g.menuMsgT > 0) T.shadow(ctx, 'UNLOCKS WITH THE CAMPAIGN', cx, 208, '#ff9ad0', 1, 'center');
     T.draw(ctx, 'W / S MOVE   ENTER SELECT   OR TAP AN OPTION', 240, 246, '#7d6f9c', 1, 'center');
     T.draw(ctx, 'ROCK BOTTOM ARCADE SYSTEM   CREDIT 01', 240, 258, '#4a3d66', 1, 'center');
+  }
+
+  /* The play transition (game.js, G.startLaunch), 1.25 s: the drum hit sets every light off at full
+     blast (0 - 0.3 s), then the lights go out and darkness falls (0.3 - 0.6 s) with Jack left in a
+     single spotlight, which closes like an iris on him (0.6 - 1.25 s). The game then opens from black. */
+  function drawLaunch(g, ctx) {
+    const t = g.stateT, beat = LS.Audio.beat(g.t), JX = 112, JY = 190, W = LS.W, H = LS.H;
+    drawMenuStage(g, ctx, beat, t < 0.3 ? 'flash' : 'out');
+    if (t >= 0.3) {
+      const k = clamp01((t - 0.3) / 0.3);
+      ctx.globalAlpha = 0.85 * k; rect(ctx, 0, 0, W, H, '#000');            // darkness falls
+      const sp = ctx.createRadialGradient(JX, JY, 10, JX, JY, 95);          // the spotlight on Jack
+      sp.addColorStop(0, 'rgba(255,240,220,0.34)'); sp.addColorStop(1, 'rgba(255,240,220,0)');
+      ctx.globalAlpha = k; ctx.fillStyle = sp; ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 1;
+    }
+    menuJack(g, ctx, beat);
+    if (t < 0.3) { ctx.globalAlpha = 1 - t / 0.3; logo(ctx, g, 50); ctx.globalAlpha = 1; }   // the title goes with the music
+    if (t > 0.6) {                                                                          // iris: black outside a shrinking circle
+      const k = clamp01((t - 0.6) / 0.65), r = 420 * (1 - k) * (1 - k);   // starts wider than the farthest corner (about 414 px), so the black enters smoothly
+      ctx.fillStyle = '#000';
+      if (k >= 1) ctx.fillRect(0, 0, W, H);
+      else { ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.arc(JX, JY, r, 0, Math.PI * 2); ctx.fill('evenodd'); }
+    }
   }
 
   function drawOptions(g, ctx) {
@@ -608,6 +633,7 @@
       case 'splash': drawSplash(g, ctx); break;
       case 'title': drawTitle(g, ctx); break;
       case 'options': drawOptions(g, ctx); break;
+      case 'launch': drawLaunch(g, ctx); break;
       case 'credits': drawCredits(g, ctx); break;
       case 'controls': drawControls(g, ctx); break;
       case 'intro': drawIntro(g, ctx); break;
