@@ -20,7 +20,8 @@ You are **Jack Ryder**, a 38-year-old musician who never made it. Fight your way
 | The Last Solo (needs a full meter) | `L` |
 | Start / confirm | `Enter` |
 | Pause | `Esc` |
-| Sound on / off | `M` (or the button in the top-right corner) |
+| Sound on / off | `M` (or the button in the top-right corner, or Options in the menu) |
+| Menu | `W` `S` or arrows to move, `Enter` to choose, `Esc` to go back; a click or tap on an option also picks it |
 
 On touch devices a virtual stick and PUNCH / KICK / JUMP / BLOCK / SOLO / START / PAUSE buttons appear automatically.
 
@@ -101,7 +102,7 @@ Append these to the URL:
 | `?debug=1` | Draws hit boxes, shows state in the page title, enables keys `1` / `2` (skip to wave 2 / boss) and `3` (boss at 10 HP) |
 | `?start=1` | Skips the menus |
 | `?splash=0` | Boots straight into the title menu instead of the splash and the intro (also skipped by `start=1` and `screen=...`) |
-| `?screen=intro` | Opens a screen directly: `splash`, `intro`, `story` (the old multi-page story), `controls`, `paused` |
+| `?screen=intro` | Opens a screen directly: `splash`, `intro`, `title`, `options`, `credits`, `story` (the old multi-page story), `controls`, `paused` |
 | `?skip=N` | Starts at wave N+1 of the segment, or at its boss / fork when `N` is past its last wave (`N` = 2 for the opening of Level 4); needs `start=1` |
 | `?level=ID` | Plays another level graph (`lastbar` by default; `forktest` is a small fixture with both Level 4 forks) |
 | `?seg=ID` | Starts straight in a segment of the level, so any route can be reached directly (Level 4: `metal1`, `metal2`, `glam`, `disco`; for example `?seg=glam&start=1`) |

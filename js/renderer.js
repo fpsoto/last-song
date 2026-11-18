@@ -261,25 +261,157 @@
     if (((g.t * 2) | 0) % 2 === 0) LS.Text.draw(ctx, 'ENTER - SKIP', 474, 258, '#4a3d66', 1, 'right');
   }
 
+  // ---------------------------------------------------------------------
+  // Main menu: an empty rock stage. The static set (wall, truss, boards, amps, guitar, mic) is
+  // painted once; the lights, Jack and the menu are drawn every frame, pulsing with the music.
+  // ---------------------------------------------------------------------
+  const STAGE_FLOOR = 178;                         // y where the back wall meets the stage boards
+  const CAN_X = [70, 180, 300, 410];               // the four light cans on the truss
+  const STAGE_COLS = ['#ff2e4a', '#9b4dff', '#2e6bff'];   // red, violet, blue
+  let stageTex = null;
+
+  function stageTexture() {
+    if (stageTex) return stageTex;
+    stageTex = LS.makeCanvas(LS.W, LS.H);
+    const c = stageTex.getContext('2d'), W = LS.W, H = LS.H, amp = ampTexture();
+    const px = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), w, h); };
+
+    // back wall: dark violet with curtain folds
+    const wall = c.createLinearGradient(0, 0, 0, STAGE_FLOOR);
+    wall.addColorStop(0, '#0c0612'); wall.addColorStop(1, '#241038');
+    c.fillStyle = wall; c.fillRect(0, 0, W, STAGE_FLOOR);
+    for (let x = 0; x < W; x += 10) px(x, 0, 5, STAGE_FLOOR, (x / 10) % 2 ? 'rgba(0,0,0,0.28)' : 'rgba(120,60,160,0.08)');
+
+    // lighting truss with a can under each beam
+    px(0, 8, W, 4, '#2a2630'); px(0, 20, W, 3, '#2a2630');
+    for (let x = 0; x < W; x += 12) { px(x, 12, 1, 8, '#3a3540'); px(x + 6, 14, 1, 4, '#3a3540'); }
+    for (const x of CAN_X) { px(x - 8, 22, 16, 10, '#14121a'); px(x - 8, 22, 16, 1, '#4a4450'); px(x - 6, 32, 12, 2, '#08060c'); }
+
+    // stage boards in perspective, with the lip at the front edge of the back wall
+    c.fillStyle = '#2b170f'; c.fillRect(0, STAGE_FLOOR, W, H - STAGE_FLOOR);
+    for (let y = STAGE_FLOOR, h = 5, i = 0; y < H; y += h, h += 1.6, i++) {
+      px(0, y, W, Math.max(1, Math.round(h) - 1), i % 2 ? '#3a2216' : '#33200f');
+      px(0, y + Math.round(h) - 1, W, 1, '#1a0d08');
+    }
+    c.strokeStyle = 'rgba(0,0,0,0.35)'; c.lineWidth = 1;
+    for (let k = -4; k <= 4; k++) { c.beginPath(); c.moveTo(240 + k * 22, STAGE_FLOOR); c.lineTo(240 + k * 95, H); c.stroke(); }
+    px(0, STAGE_FLOOR - 3, W, 3, '#5a3622'); px(0, STAGE_FLOOR - 3, W, 1, '#8a5a38');
+
+    // left amp stack: two cabinets cut from the grille texture
+    for (const [y, h] of [[124, 48], [172, 50]]) {
+      c.drawImage(amp, 40, 70, 62, h, 16, y, 62, h);
+      px(14, y, 66, 2, '#4a443c'); px(14, y + h - 1, 66, 1, '#06040a'); px(14, y, 2, h, '#0a0806'); px(78, y, 2, h, '#0a0806');
+    }
+    for (let i = 0; i < 4; i++) { px(24 + i * 14, 127, 8, 6, '#0a0806'); px(25 + i * 14, 128, 6, 4, '#6a6258'); px(28 + i * 14, 128, 1, 3, '#d8d0b0'); }
+
+    // a combo amp and a floor monitor around the microphone
+    c.drawImage(amp, 120, 60, 40, 34, 150, 192, 40, 34);
+    px(148, 192, 44, 2, '#4a443c'); px(148, 225, 44, 1, '#06040a');
+    px(198, 218, 36, 7, '#14121a'); px(202, 212, 28, 6, '#0e0c14'); px(198, 218, 36, 1, '#3a3540');
+
+    // guitar on its stand
+    px(118, 218, 2, 8, '#1a1a20'); px(134, 218, 2, 8, '#1a1a20'); px(122, 214, 10, 2, '#1a1a20');
+    px(122, 186, 26, 32, '#7a1018'); px(124, 188, 22, 28, '#a01824'); px(128, 200, 14, 6, '#e8e0d0'); px(130, 196, 3, 3, '#222');
+    px(133, 148, 4, 40, '#3a2210'); px(131, 142, 8, 8, '#2a1608'); px(122, 186, 26, 1, '#d8505a');
+
+    // the microphone on its stand, dead centre
+    px(226, 226, 28, 2, '#2a2a30'); px(232, 223, 16, 3, '#2a2a30'); px(239, 158, 2, 66, '#34343c');
+    px(236, 152, 8, 6, '#1a1a20'); px(237, 142, 6, 11, '#9a9aa4'); px(238, 143, 4, 6, '#2a2a30'); px(237, 142, 6, 1, '#d8d8e0');
+    return stageTex;
+  }
+
+  /* Stage, truss lights and the light show. `beat` comes from Audio.beat: every beat the cans
+     flash and fade, the colours rotate every two beats and the downbeat of each bar hits harder. */
+  function drawMenuStage(g, ctx, beat) {
+    ctx.drawImage(stageTexture(), 0, 0);
+    const pulse = 1 - (beat % 1), bar = Math.floor(beat) % 4 === 0, strength = (bar ? 1 : 0.62) * pulse * pulse;
+    for (let i = 0; i < CAN_X.length; i++) {
+      const x = CAN_X[i], col = STAGE_COLS[(Math.floor(beat / 2) + i) % STAGE_COLS.length];
+      const sway = Math.sin(g.t * 0.7 + i * 1.7) * 26, a = 0.1 + 0.42 * strength;
+      const gr = ctx.createLinearGradient(0, 34, 0, STAGE_FLOOR + 60);
+      gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = a; ctx.fillStyle = gr;
+      ctx.beginPath(); ctx.moveTo(x - 3, 34); ctx.lineTo(x + 3, 34); ctx.lineTo(x + sway + 46, STAGE_FLOOR + 60); ctx.lineTo(x + sway - 46, STAGE_FLOOR + 60); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = a * 0.9; ctx.fillStyle = col;                      // the pool of light on the boards
+      ctx.beginPath(); ctx.ellipse(x + sway, STAGE_FLOOR + 52, 40, 8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.35 + 0.65 * pulse; rect(ctx, x - 5, 31, 10, 3, col);   // the lamp itself
+    }
+    ctx.globalAlpha = 1;
+    if (bar && pulse > 0.82) { ctx.globalAlpha = 0.16 * (pulse - 0.82) / 0.18; rect(ctx, 0, 0, LS.W, LS.H, '#fff'); ctx.globalAlpha = 1; }
+  }
+
+  /* Jack by the amp stack, idling in time with the music (see menuPose in sprites.js). */
+  function menuJack(g, ctx, beat) {
+    dummy.kind = 'jack'; dummy.state = 'menu'; dummy.animT = g.t; dummy.beat = beat; dummy.facing = 1;
+    ctx.save();
+    ctx.translate(112, 244);
+    ctx.scale(2, 2);
+    LS.Sprites.draw(ctx, dummy, 0, 0);
+    ctx.restore();
+    dummy.state = 'idle';
+  }
+
+  function drawPadlock(ctx, x, y, col) {
+    rect(ctx, x + 1, y, 5, 1, col); rect(ctx, x, y + 1, 1, 4, col); rect(ctx, x + 6, y + 1, 1, 4, col);
+    rect(ctx, x - 1, y + 5, 9, 7, col);
+  }
+
   function drawTitle(g, ctx) {
-    const T = LS.Text, blink = ((g.t * 2.5) | 0) % 2 === 0;
-    backdrop(g, ctx, 0.66);
+    const T = LS.Text, blink = ((g.t * 2.5) | 0) % 2 === 0, M = g.MENU, b = M.box;
+    const beat = LS.Audio.beat(g.t);
+    drawMenuStage(g, ctx, beat);
     rect(ctx, 0, 36, LS.W, 1, '#ff2e88'); rect(ctx, 0, 112, LS.W, 1, '#28dcff');
-    rect(ctx, 0, 37, LS.W, 75, 'rgba(8,3,16,0.55)');
+    rect(ctx, 0, 37, LS.W, 75, 'rgba(8,3,16,0.5)');
     logo(ctx, g, 50);
     T.shadow(ctx, 'A ROCKSTAR NEVER DIES. HE JUST GETS OLDER.', 240, 96, '#28dcff', 1, 'center');
+    menuJack(g, ctx, beat);
 
-    bigSprite(ctx, 'jack', 76, 258, 2, g.t, 1);
-    bigSprite(ctx, 'king', 412, 258, 2, g.t + 1, -1);
+    // the options, on a dark panel on the right (a click or tap on a row picks it)
+    const cx = b.x + b.w / 2;
+    rect(ctx, b.x, b.y + 4, b.w, M.items.length * M.rowH + 4, 'rgba(8,3,16,0.74)');
+    rect(ctx, b.x, b.y + 4, b.w, 1, '#ff2e88'); rect(ctx, b.x, b.y + 8 + M.items.length * M.rowH, b.w, 1, '#28dcff');
+    M.items.forEach((label, i) => {
+      const sel = g.menu === i, locked = M.locked[i], y = M.rowY + i * M.rowH;
+      const col = locked ? '#4a3d66' : sel ? '#ffe14a' : '#a89cc8';
+      const lx = cx - (locked ? 2 : 0) - T.width(label, 2) / 2;       // left edge of the label (locked rows leave room for the padlock)
+      T.shadow(ctx, label, lx, y, col, 2);
+      if (locked) drawPadlock(ctx, b.x + b.w - 16, y + 1, '#7d6f9c');
+      if (sel && blink) T.shadow(ctx, '>', Math.max(b.x + 3, lx - 14), y, '#ff2e88', 2);   // never outside the panel
+    });
+    if (g.menuMsgT > 0) T.shadow(ctx, 'UNLOCKS WITH THE CAMPAIGN', cx, 208, '#ff9ad0', 1, 'center');
+    T.draw(ctx, 'W / S MOVE   ENTER SELECT   OR TAP AN OPTION', 240, 246, '#7d6f9c', 1, 'center');
+    T.draw(ctx, 'ROCK BOTTOM ARCADE SYSTEM   CREDIT 01', 240, 258, '#4a3d66', 1, 'center');
+  }
 
-    ['START GAME', 'CONTROLS'].forEach((label, i) => {
-      const sel = g.menu === i, y = 150 + i * 22;
-      T.shadow(ctx, label, 240, y, sel ? '#ffe14a' : '#7d6f9c', 2, 'center');
+  function drawOptions(g, ctx) {
+    const T = LS.Text, beat = LS.Audio.beat(g.t), blink = ((g.t * 2.5) | 0) % 2 === 0;
+    drawMenuStage(g, ctx, beat);
+    rect(ctx, 0, 0, LS.W, LS.H, 'rgba(8,3,16,0.72)');
+    T.shadow(ctx, 'OPTIONS', 240, 40, '#ffe14a', 3, 'center', '#b0241e');
+    g.OPTIONS_ROWS.forEach((row, i) => {
+      const sel = g.opt === i, y = g.OPT.y + i * g.OPT.h;
+      const label = row === 'SOUND' ? 'SOUND: ' + (LS.Audio.muted ? 'OFF' : 'ON') : row;
+      T.shadow(ctx, label, 240, y, sel ? '#ffe14a' : '#a89cc8', 2, 'center');
       if (sel && blink) T.shadow(ctx, '>', 240 - T.width(label, 2) / 2 - 18, y, '#ff2e88', 2);
     });
-    if (blink) T.shadow(ctx, 'PRESS ENTER', 240, 206, '#f4f0e8', 1, 'center');
-    T.draw(ctx, 'VERTICAL SLICE - 1 STAGE', 240, 240, '#7d6f9c', 1, 'center');
-    T.draw(ctx, 'ROCK BOTTOM ARCADE SYSTEM   CREDIT 01', 240, 254, '#4a3d66', 1, 'center');
+    T.draw(ctx, 'ESC - BACK', 240, 246, '#7d6f9c', 1, 'center');
+  }
+
+  function drawCredits(g, ctx) {
+    const T = LS.Text, beat = LS.Audio.beat(g.t);
+    drawMenuStage(g, ctx, beat);
+    rect(ctx, 0, 0, LS.W, LS.H, 'rgba(8,3,16,0.78)');
+    T.shadow(ctx, 'CREDITS', 240, 30, '#ffe14a', 3, 'center', '#b0241e');
+    const lines = [
+      ['LAST SONG', '#ff2e88'], ['', 0],
+      ['A GAME BY', '#7d6f9c'], ['THE DR JUEGO STUDIO', '#f4f0e8'], ['', 0],
+      ['ALL ART AND SOUND ARE GENERATED BY CODE', '#28dcff'],
+      ['HTML5 CANVAS AND WEB AUDIO', '#28dcff'],
+      ['NO FRAMEWORKS. NO IMAGE FILES. NO AUDIO FILES.', '#28dcff'], ['', 0],
+      ['THANKS FOR PLAYING', '#ffe14a'],
+    ];
+    lines.forEach(([s, col], i) => { if (s) T.shadow(ctx, s, 240, 76 + i * 14, col, 1, 'center'); });
+    if (((g.t * 2.5) | 0) % 2 === 0) T.shadow(ctx, 'PRESS ENTER TO GO BACK', 240, 246, '#ffe14a', 1, 'center');
   }
 
   function drawControls(g, ctx) {
@@ -475,6 +607,8 @@
     switch (g.state) {
       case 'splash': drawSplash(g, ctx); break;
       case 'title': drawTitle(g, ctx); break;
+      case 'options': drawOptions(g, ctx); break;
+      case 'credits': drawCredits(g, ctx); break;
       case 'controls': drawControls(g, ctx); break;
       case 'intro': drawIntro(g, ctx); break;
       case 'story': drawStory(g, ctx); break;

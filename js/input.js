@@ -90,8 +90,13 @@
 
     // Tapping the screen works as START on touch devices (menus only react to it).
     const canvas = document.getElementById('game');
+    // Any pointer reports where it landed, in canvas coordinates, as `pressed.click` (menus hit-test it);
+    // a touch also counts as `tap` (confirm), which is all the old screens react to.
     canvas.addEventListener('pointerdown', (e) => {
-      if (e.pointerType === 'touch') { enableTouch(); I.pressed.tap = true; LS.Audio.unlock(); }
+      const r = canvas.getBoundingClientRect();
+      I.pressed.click = { x: (e.clientX - r.left) / r.width * LS.W, y: (e.clientY - r.top) / r.height * LS.H };
+      LS.Audio.unlock();
+      if (e.pointerType === 'touch') { enableTouch(); I.pressed.tap = true; }
     });
 
     function enableTouch() {

@@ -7,6 +7,7 @@
 
   let ctx = null, master = null, sfxBus = null, musicBus = null, distBus = null, noiseBuf = null;
   let song = null, step = 0, nextTime = 0;
+  let songOrigin = 0, songStepDur = 0;   // audio-clock time of step 0 and the length of a step (for A.beat)
 
   /* Create the audio graph on the first user gesture. */
   A.unlock = function () {
@@ -38,6 +39,15 @@
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const data = noiseBuf.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  };
+
+  /* Where the current song is, in beats (fractional). Visuals use it to pulse in time with the
+     music. When the audio is not running (muted by the browser, not unlocked yet) it falls back to
+     a clock of its own at the same tempo, so the lights still flash. */
+  A.beat = function (fallbackT) {
+    if (song && ctx && ctx.state === 'running' && songStepDur) return Math.max(0, (ctx.currentTime - songOrigin) / (songStepDur * 4));
+    const bpm = (song && song.bpm) || (LS.MENU_MUSIC && LS.MENU_MUSIC.bpm) || 100;
+    return (fallbackT || 0) * bpm / 60;
   };
 
   /* Browsers keep audio suspended until a key press or tap. Callers that want a sound at a precise
@@ -97,6 +107,12 @@
     heavy() { noise(0.17, 0.55, 'lowpass', 1500); tone('sine', 160, 40, 0.24, 0.7); tone('square', 320, 60, 0.12, 0.18); },
     hurt() { tone('sawtooth', 340, 110, 0.18, 0.22); noise(0.06, 0.25, 'lowpass', 1800); },
     ko() { tone('square', 520, 60, 0.42, 0.2); noise(0.2, 0.2, 'lowpass', 900); },
+    // Menu: a soft guitar pluck for moving, a power-chord strum for choosing, a dull knock for
+    // "locked", and an amp-cabinet tap for toggles.
+    pluck() { tone('triangle', 330, 300, 0.18, 0.2); tone('sawtooth', 331, 300, 0.12, 0.05); noise(0.02, 0.1, 'highpass', 3000); },
+    strum() { chord(147, 0.4); noise(0.1, 0.2, 'highpass', 1500); },
+    denied() { const t = ctx.currentTime; tone('square', 180, 150, 0.1, 0.18, t); tone('square', 140, 110, 0.14, 0.18, t + 0.11); },
+    tap() { noise(0.03, 0.3, 'bandpass', 800); tone('sine', 90, 60, 0.08, 0.35); },
     // Intro: three strings strummed badly out of tune (the beating of the detuned pairs is the point).
     guitarOut() {
       const t = ctx.currentTime;
@@ -205,6 +221,7 @@
     const d = 60 / song.bpm / 4; // one 16th note
     if (nextTime < ctx.currentTime - 0.2) nextTime = ctx.currentTime + 0.05;
     while (nextTime < ctx.currentTime + 0.12) {
+      songOrigin = nextTime - step * d; songStepDur = d;
       try { scheduleStep(step, nextTime, d); } catch (e) { /* ignore */ }
       nextTime += d;
       step++;
