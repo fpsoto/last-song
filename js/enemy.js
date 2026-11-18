@@ -51,6 +51,36 @@
       return super.takeHit(def, dir);
     }
 
+    /* Obstacle avoidance. The solids are thin ellipses lying on the floor, and an enemy that walks
+       straight at a target behind one is pushed back out of it every frame: it stands there
+       "stuck". So when a solid is ahead of us (in the walking direction, overlapping our depth),
+       pick a side and aim for a depth just past its footprint. The choice is remembered in
+       this.detour until we are past it, so the enemy doesn't dither between the two sides.
+       Returns {y} while a detour is active, otherwise null. */
+    steerAround(g, ex) {
+      if (Math.abs(ex) < 4) { this.detour = null; return null; }   // already at the spot: nothing to walk around
+      const dir = Math.sign(ex);
+      let d = this.detour;
+      if (d) {
+        const s = d.solid;
+        const passed = (this.x - s.x) * dir > s.rx + 8 || g.solids.indexOf(s) < 0 || (d.t -= 1 / 60) <= 0;
+        if (passed) d = this.detour = null;
+      }
+      if (d) return d;
+      for (const s of g.solids) {
+        const ahead = (s.x - this.x) * dir;
+        if (ahead < -2 || ahead > s.rx + 16) continue;            // beside/behind us, or still far
+        if (Math.abs(this.y - s.y) > s.ry + 7) continue;           // we already clear it in depth
+        // Prefer the side we are already on; flip if that would leave the floor.
+        let side = this.y >= s.y ? 1 : -1;
+        let y = s.y + side * (s.ry + 10);
+        if (y < LS.FLOOR_TOP || y > LS.FLOOR_BOTTOM) { side = -side; y = s.y + side * (s.ry + 10); }
+        this.detour = { solid: s, y: LS.clamp(y, LS.FLOOR_TOP, LS.FLOOR_BOTTOM), t: 1.5 };
+        return this.detour;
+      }
+      return null;
+    }
+
     update(dt, g) {
       if (this.updateCommon(dt, g)) {
         // Regular enemies blink out a moment after dying.
@@ -106,10 +136,28 @@
         const other = p.x - side * gap;
         tx = other >= lo && other <= hi ? other : LS.clamp(tx, lo, hi);
       }
-      const ty = p.y + (ready ? 0 : this.laneBias);
-      const ex = tx - this.x, ey = ty - this.y;
-      if (Math.abs(ex) > 2) { this.x += Math.sign(ex) * Math.min(Math.abs(ex), cfg.speed * dt); this.moving = true; }
-      if (Math.abs(ey) > 2) { this.y += Math.sign(ey) * Math.min(Math.abs(ey), cfg.speed * 0.65 * dt); this.moving = true; }
+      let ty = p.y + (ready ? 0 : this.laneBias);
+      // A spot inside a crate can never be reached: use the same distance on Jack's other side,
+      // or failing that the nearest free x beside the crate.
+      const inSolid = (x) => g.solids.find((s) => ((x - s.x) / (s.rx + 6)) ** 2 + ((ty - s.y) / (s.ry + 8)) ** 2 < 1);
+      let hit = inSolid(tx);
+      if (hit) {
+        const other = p.x - side * gap;
+        if (other >= lo && other <= hi && !inSolid(other)) tx = other;
+        else tx = LS.clamp(hit.x + (tx >= hit.x ? 1 : -1) * (hit.rx + 10), lo, hi);
+      }
+      const ex = tx - this.x;
+      // Scenery in the way (crates, amps...): walk around it instead of pushing against it.
+      const detour = this.steerAround(g, ex);
+      let walkX = true;
+      if (detour) {
+        ty = detour.y;
+        // Clear the obstacle's depth first, then continue along x.
+        walkX = Math.abs(detour.y - this.y) < 3;
+      }
+      const ey = ty - this.y;
+      if (walkX && Math.abs(ex) > 2) { this.x += Math.sign(ex) * Math.min(Math.abs(ex), cfg.speed * dt); this.moving = true; }
+      if (Math.abs(ey) > 2) { this.y += Math.sign(ey) * Math.min(Math.abs(ey), cfg.speed * (detour ? 0.9 : 0.65) * dt); this.moving = true; }
 
       // Attack test uses the real distance, so an enemy pinned against the arena edge still swings.
       if (ready && Math.abs(dx) < cfg.reach + 6 && Math.abs(dy) < 6) LS.Combat.begin(this, cfg.atk);

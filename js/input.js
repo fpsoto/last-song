@@ -122,6 +122,7 @@
         if (e.hp > 0 && dist < best) { best = dist; t = e; }
       }
     }
+    if (g.exitPick) I.pressed.start = true;                                       // at a fork: take the highlighted way
     if (p.power >= p.powerMax && g.enemies.length >= 2) I.pressed.special = true;  // use the solo when it's full
     if (Math.random() < 0.003) I.pressed.jump = true;                              // hop around now and then
     if (!t) {

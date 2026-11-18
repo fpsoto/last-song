@@ -11,6 +11,7 @@
   // Walkable floor band, in screen/world Y. "y" of a fighter is where the feet touch.
   LS.FLOOR_TOP = 181;
   LS.FLOOR_BOTTOM = 246;
+  LS.EXIT_REACH = 80;   // a fork can be chosen from this far before its line (see game.js, drawExit)
 
   // URL flags used for development: ?debug=1 shows hitboxes and enables skip keys.
   const params = new URLSearchParams(window.location.search);

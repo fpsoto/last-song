@@ -21,7 +21,7 @@
     state: 'title', stateT: 0, t: 0,
     menu: 0, opt: 0, menuMsgT: 0, controlsFrom: 'title', introIndex: 0, introT: 0,
     era: null, player: null, enemies: [], boss: null, projectiles: [], props: [],
-    breakables: [], items: [], solids: [],
+    breakables: [], items: [], solids: [], exitPick: null,
     phase: 'advance', phaseT: 0, waveIndex: 0, pending: [],
     hitstop: 0, slowT: 0, score: 0, cardT: 0, noCharge: false,
     bubble: null, target: null, targetT: 0, lowWarned: false, cues: [],
@@ -357,7 +357,7 @@
   // ---------------------------------------------------------------------
   /* Jack walked through an exit option: start the transition into its segment. */
   G.takeExit = function (option) {
-    G.pendingSeg = option.to;
+    G.pendingSeg = option.to; G.exitPick = null;
     G.phase = 'transition'; G.phaseT = 0; G.fade = 0;
     G.bubble = null;
     LS.Audio.sfx('go');
@@ -380,8 +380,17 @@
         cam.maxX = next.lock; // the camera can't scroll past the next arena
         if (!wave && !era.boss) {
           // The segment's exit: no trigger, the screen just stops and the way out stays open.
-          // The depth (y) at which Jack crosses the line picks the option: a physical fork.
-          if (p.x > era.exit.at && p.hp > 0) G.takeExit(LS.pickExit(era.exit, p.y));
+          // One option is a plain door: walking through it is enough. Several options are a physical
+          // fork: each is a doorway on the floor at its own depth band, Jack stands in front of one
+          // (the highlighted one) and confirms with ENTER or a tap, so a choice is never an accident.
+          const ex = era.exit;
+          G.exitPick = null;
+          if (p.hp <= 0) break;
+          if (ex.options.length === 1) { if (p.x > ex.at) G.takeExit(ex.options[0]); break; }
+          if (p.x > ex.at - LS.EXIT_REACH) {
+            G.exitPick = LS.pickExit(ex, p.y);
+            if (LS.Input.pressed.start || LS.Input.pressed.tap) G.takeExit(G.exitPick);
+          }
           break;
         }
         if (p.x > next.trigger) {

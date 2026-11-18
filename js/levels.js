@@ -28,10 +28,11 @@
             him ends the route (Stage Clear)
      exit   { lock, at, options: [ { to, y: [min, max], label } ] }
             After the last wave the camera stops at `lock` and Jack may walk to the line x = `at`.
-            Crossing it takes the option whose depth band `y` contains Jack's y at that moment
-            (the closest band if he is in a gap; on a shared edge the option listed first wins).
-            One option = a plain door (`y` can be omitted);
-            several options = a PHYSICAL FORK chosen with the depth axis, no menu.
+            One option = a plain door: crossing the line takes it (`y` can be omitted).
+            Several options = a PHYSICAL FORK, no menu: each option is a doorway on the floor at its
+            depth band `y`. Within LS.EXIT_REACH of the line Jack is "in front of" the doorway whose
+            band contains his y (the closest band if he is in a gap; on a shared edge the first listed
+            wins). That doorway lights up and ENTER (or a tap) confirms. Optional `color` per option.
 
    Rules, checked by LS.validateLevel(): the graph is a tree (a route never reconnects with
    the one it left; a new fork is just another exit), every `to` exists, every segment is
@@ -163,7 +164,7 @@
       ] },
     ],
 
-    // The first fork: three ways out, picked with the depth Jack crosses the line at.
+    // The first fork: three doorways, each at its own depth band; Jack stands in front of one and confirms.
     exit: {
       lock: 520, at: 980,
       options: [

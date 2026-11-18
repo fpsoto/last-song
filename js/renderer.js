@@ -55,23 +55,48 @@
     lines.forEach((l, i) => T.draw(ctx, l, x + 4, y + 4 + i * 7, '#12081c'));
   }
 
-  /* Generic cue for a segment's exit, drawn on the floor in world space: a glowing line at the
-     crossing point with one neon sign per option, placed at the depth band that selects it.
-     It is a stand-in so every route can be played and tested now; scenes are expected to
-     draw their own doors, streets and passages on top of (or instead of) it. */
+  /* Generic cue for a segment's exit, drawn on the floor in world space. A single option is a
+     glowing line to walk through. A fork is one doorway per option, each laid on the depth band that
+     selects it: a lit threshold on the floor with a neon sign over it. The doorway Jack stands in
+     front of lights up with a prompt (ENTER or tap confirms, see game.js). Scenes are expected to
+     draw their own doors, streets and passages on top of (or instead of) this stand-in. */
+  const DOOR_COLORS = ['#ff2e88', '#ffe14a', '#28dcff', '#7dff6a'];
   function drawExit(ctx, g) {
     const ex = g.era.exit;
     if (!ex || g.phase !== 'advance' || g.waveIndex < g.era.waves.length) return;
-    const blink = ((g.t * 3) | 0) % 2 === 0, T = LS.Text;
-    for (let y = LS.FLOOR_TOP; y < LS.FLOOR_BOTTOM; y += 4) rect(ctx, ex.at, y, 2, 2, blink ? '#ffe14a' : '#ff2e88');
-    const many = ex.options.length > 1;
-    for (const o of ex.options) {
-      const mid = o.y ? Math.round((o.y[0] + o.y[1]) / 2) : Math.round((LS.FLOOR_TOP + LS.FLOOR_BOTTOM) / 2);
-      if (many) { // tick marks showing where one band ends and the next begins
-        rect(ctx, ex.at - 5, o.y[0], 5, 1, '#7d6f9c');
-        rect(ctx, ex.at - 5, o.y[1], 5, 1, '#7d6f9c');
+    const blink = ((g.t * 3) | 0) % 2 === 0, T = LS.Text, pulse = 0.5 + 0.5 * Math.sin(g.t * 6);
+    if (ex.options.length === 1) {
+      for (let y = LS.FLOOR_TOP; y < LS.FLOOR_BOTTOM; y += 4) rect(ctx, ex.at, y, 2, 2, blink ? '#ffe14a' : '#ff2e88');
+      const o = ex.options[0];
+      T.shadow(ctx, (o.label || 'GO') + ' >', ex.at - 8, Math.round((LS.FLOOR_TOP + LS.FLOOR_BOTTOM) / 2) - 3, blink ? '#ffe14a' : '#28dcff', 1, 'right');
+      return;
+    }
+    const x0 = ex.at - 46, w = 50, camX = Math.round(LS.Camera.x);
+    ex.options.forEach((o, i) => {
+      const col = o.color || DOOR_COLORS[i % DOOR_COLORS.length], on = g.exitPick === o;
+      const y0 = o.y[0], h = o.y[1] - o.y[0], mid = Math.round(y0 + h / 2);
+      // the threshold: a dark doorway slab with a glowing frame, brighter when it is the chosen one
+      ctx.globalAlpha = on ? 0.55 + 0.25 * pulse : 0.28;
+      rect(ctx, x0, y0 + 1, w, h - 2, col);
+      ctx.globalAlpha = 1;
+      rect(ctx, x0 + 3, y0 + 3, w - 6, h - 6, '#0b0612');
+      rect(ctx, x0, y0 + 1, w, 1, col); rect(ctx, x0, y0 + h - 2, w, 1, col);
+      rect(ctx, x0, y0 + 1, 2, h - 2, col); rect(ctx, x0 + w - 2, y0 + 1, 2, h - 2, col);
+      // chevrons running into the door
+      for (let k = 0; k < 3; k++) {
+        const cx = x0 + 10 + k * 11 + (on ? ((g.t * 14) | 0) % 3 : 0);
+        ctx.globalAlpha = on ? 1 : 0.5;
+        rect(ctx, cx, mid - 3, 2, 2, col); rect(ctx, cx + 2, mid - 1, 2, 2, col); rect(ctx, cx, mid + 1, 2, 2, col);
       }
-      T.shadow(ctx, (o.label || 'GO') + ' >', ex.at - 8, mid - 3, blink ? '#ffe14a' : '#28dcff', 1, 'right');
+      ctx.globalAlpha = 1;
+      T.shadow(ctx, o.label || 'GO', x0 - 4, mid - 3, on ? '#fff6c0' : col, 1, 'right');
+    });
+    // header, in screen space on the locked screen
+    T.shadow(ctx, 'CHOOSE YOUR WAY', camX + LS.W / 2, 28, blink ? '#ffe14a' : '#ff2e88', 1, 'center');
+    if (g.exitPick) {
+      T.shadow(ctx, 'ENTER / TAP: GO TO ' + (g.exitPick.label || 'GO'), camX + LS.W / 2, 40, '#fff6c0', 1, 'center');
+    } else {
+      T.shadow(ctx, 'WALK TO A DOOR', camX + LS.W / 2, 40, '#c8bce0', 1, 'center');
     }
   }
 
