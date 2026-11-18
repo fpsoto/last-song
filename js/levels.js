@@ -10,6 +10,10 @@
 
      background        key into LS.Scenes (background.js)
      width             world width in pixels
+     sceneX/sceneWidth optional: show only a slice of a bigger scene (see Background.build), so one
+                       long stage can be cut into segments with no visible seam
+     tint              optional colour wash over the scene art (palette of a placeholder route)
+     ending            line shown on the Stage Clear screen when this route is finished
      lights            rim-light colour on the fighters, by world x
      music/bossMusic   patterns for the sequencer in audio.js
      start             where Jack appears (when he walks in from another segment only x is used)
@@ -84,16 +88,30 @@
   };
 
   // ======================================================================
-  // Level 'lastbar' (1984): a one-route level, i.e. a graph with a single segment.
+  // Level 'lastbar' = Level 4 (1984): the Heavy Metal opening and the first fork
+  // (docs/level-design.md). The original one-room stage is cut at ~40% into two segments that
+  // share the same scene, so going from one to the other looks like simply walking on:
+  //
+  //   metal1 (0% - 40%) -+- top band     glam ----> boss (placeholder, Glam Metal ending)
+  //                      +- middle band  metal2 --> THE KING OF RIFFS (Heavy Metal ending)
+  //                      +- bottom band  disco ---> boss (placeholder, Disco ending)
+  //
+  // Segment x is local: every segment after the fork starts at scene x 1000 (`sceneX`).
+  // `glam` and `disco` reuse the bar scene under a colour tint, with their own enemy mix, music
+  // and boss stats, until their real scenery, enemies and bosses exist (#27, #28, #33).
+  // The three routes have the same length (1400 px, two waves of ten enemies in total, then the
+  // boss), so choosing one is a matter of style, not of distance.
   // ======================================================================
-  const bar = {
+  const TOP = [LS.FLOOR_TOP, 203], MID = [203, 224], BOT = [224, LS.FLOOR_BOTTOM];
+  const SCENE_W = 2400, FORK_X = 1000;   // the scene is 2400 px wide; the fork sits at ~40%
+
+  // The opening: entrance and bar. It ends in the first fork.
+  const metal1 = {
     background: 'lastBar',
-    width: 2400,
+    width: FORK_X,
+    sceneWidth: SCENE_W,
     // Zones, left to right: entrance | bar | game room | backstage hall | stage
-    lights: [
-      { to: 470, color: '#ff9ac8' }, { to: 916, color: '#8eeaff' }, { to: 1416, color: '#9ae8b0' },
-      { to: 1916, color: '#ffa090' }, { to: 2400, color: '#ffe09a' },
-    ],
+    lights: [{ to: 470, color: '#ff9ac8' }, { to: 916, color: '#8eeaff' }, { to: FORK_X, color: '#9ae8b0' }],
     music: barTheme,
     bossMusic: bossTheme,
     start: { x: 70, y: 214 },
@@ -102,9 +120,6 @@
     props: [
       { type: 'table', x: 420, y: 189, rx: 20, ry: 6 },
       { type: 'table', x: 884, y: 188, rx: 20, ry: 6 },
-      { type: 'pool', x: 1190, y: 191, rx: 40, ry: 7 },
-      { type: 'stack', x: 1770, y: 188, rx: 20, ry: 6 },
-      { type: 'case', x: 2012, y: 187, rx: 21, ry: 6 },
     ],
 
     // drop: 'burger' (+35 HP) | 'beer' (+15 HP, +15 solo) | 'pick' (+45 solo) | 'random' | null
@@ -115,16 +130,6 @@
       { type: 'crate', x: 640, y: 238, drop: 'burger' },
       { type: 'barrel', x: 800, y: 205, drop: null },
       { type: 'amp', x: 950, y: 222, drop: 'pick' },
-      { type: 'crate', x: 1050, y: 236, drop: 'beer' },
-      { type: 'crate', x: 1270, y: 240, drop: null },
-      { type: 'barrel', x: 1330, y: 206, drop: 'burger' },
-      { type: 'case', x: 1410, y: 200, drop: 'pick' },
-      { type: 'crate', x: 1470, y: 236, drop: 'burger' },
-      { type: 'amp', x: 1560, y: 205, drop: 'burger' },
-      { type: 'barrel', x: 1700, y: 238, drop: 'beer' },
-      { type: 'case', x: 1832, y: 208, drop: 'random' },
-      { type: 'barrel', x: 2000, y: 205, drop: 'burger' },
-      { type: 'case', x: 2330, y: 200, drop: 'pick' },
     ],
 
     // trigger: player x that starts the wave | lock: camera x while it lasts
@@ -141,13 +146,55 @@
         { type: 'groupie', side: 1, y: 212, delay: 3 },
         { type: 'roadie', side: -1, y: 226, delay: 5 },
       ] },
-      { trigger: 1230, lock: 960, spawns: [           // the game room: first punks
+    ],
+
+    // The first fork: three ways out, picked with the depth Jack crosses the line at.
+    exit: {
+      lock: 520, at: 980,
+      options: [
+        { to: 'glam', y: TOP, label: 'GLAM' },
+        { to: 'metal2', y: MID, label: 'METAL' },
+        { to: 'disco', y: BOT, label: 'DISCO' },
+      ],
+    },
+    quips: { waves: ['I\'VE HAD TOUGHER CROWDS. BARELY.', 'THREE WAYS OUT. WHICH ONE HAS THE BEER?'] },
+  };
+
+  // Shared shape of the three routes after the fork (the remaining 60% of the scene).
+  const route = (o) => Object.assign({
+    background: 'lastBar', width: SCENE_W - FORK_X, sceneX: FORK_X, sceneWidth: SCENE_W,
+    bossMusic: bossTheme, start: { x: 70, y: 214 },
+  }, o);
+
+  // Heavy Metal, the main route: the game room and the backstage hall, then the King.
+  const metal2 = route({
+    lights: [{ to: 416, color: '#9ae8b0' }, { to: 916, color: '#ffa090' }, { to: 1400, color: '#ffe09a' }],
+    music: barTheme,
+    props: [
+      { type: 'pool', x: 190, y: 191, rx: 40, ry: 7 },
+      { type: 'stack', x: 770, y: 188, rx: 20, ry: 6 },
+      { type: 'case', x: 1012, y: 187, rx: 21, ry: 6 },
+    ],
+    breakables: [
+      { type: 'crate', x: 50, y: 236, drop: 'beer' },
+      { type: 'crate', x: 270, y: 240, drop: null },
+      { type: 'barrel', x: 330, y: 206, drop: 'burger' },
+      { type: 'case', x: 410, y: 200, drop: 'pick' },
+      { type: 'crate', x: 470, y: 236, drop: 'burger' },
+      { type: 'amp', x: 560, y: 205, drop: 'burger' },
+      { type: 'barrel', x: 700, y: 238, drop: 'beer' },
+      { type: 'case', x: 832, y: 208, drop: 'random' },
+      { type: 'barrel', x: 1000, y: 205, drop: 'burger' },
+      { type: 'case', x: 1330, y: 200, drop: 'pick' },
+    ],
+    waves: [
+      { trigger: 230, lock: 0, spawns: [              // the game room: first punks
         { type: 'punk', side: 1, y: 210, delay: 0 },
         { type: 'punk', side: -1, y: 230, delay: 1.5 },
         { type: 'groupie', side: 1, y: 220, delay: 3.5 },
         { type: 'roadie', side: -1, y: 214, delay: 5.5 },
       ] },
-      { trigger: 1640, lock: 1380, spawns: [          // the backstage hall: the last test before the King
+      { trigger: 640, lock: 380, spawns: [            // the backstage hall: the last test before the King
         { type: 'roadie', side: 1, y: 208, delay: 0 },
         { type: 'punk', side: -1, y: 232, delay: 0.8 },
         { type: 'groupie', side: 1, y: 220, delay: 2.5 },
@@ -156,17 +203,81 @@
         { type: 'punk', side: 1, y: 224, delay: 9 },
       ] },
     ],
-
     boss: {
-      type: 'king', name: 'THE KING OF RIFFS', hp: 280, trigger: 2090, lock: 1920,
+      type: 'king', name: 'THE KING OF RIFFS', hp: 280, trigger: 1090, lock: 920,
       tagline: '"KNEEL BEFORE THE RIFF, AMATEUR."',
     },
-  };
+    quips: { waves: ['A MOHAWK IN 1984? BOLD.', 'ONE LAST DOOR. THEN THE KING.'] },
+    ending: 'ENDING 1 OF 4: LOYAL TO HEAVY METAL',
+  });
+
+  // Glam Metal (placeholder): lots of groupies, hairspray pink, faster tempo.
+  const glam = route({
+    title: 'GLAM METAL',
+    tint: 'rgba(255,40,200,0.16)',
+    lights: [{ to: 1400, color: '#ff7ad9' }],
+    music: Object.assign({}, barTheme, { bpm: 150 }),
+    props: metal2.props, breakables: metal2.breakables,
+    waves: [
+      { trigger: 230, lock: 0, spawns: [
+        { type: 'groupie', side: 1, y: 206, delay: 0 },
+        { type: 'groupie', side: -1, y: 232, delay: 1 },
+        { type: 'groupie', side: 1, y: 214, delay: 2.5 },
+        { type: 'punk', side: -1, y: 224, delay: 4.5 },
+      ] },
+      { trigger: 640, lock: 380, spawns: [
+        { type: 'groupie', side: 1, y: 208, delay: 0 },
+        { type: 'punk', side: -1, y: 232, delay: 0.8 },
+        { type: 'groupie', side: 1, y: 220, delay: 2.5 },
+        { type: 'groupie', side: -1, y: 214, delay: 4 },
+        { type: 'roadie', side: 1, y: 238, delay: 6 },
+        { type: 'punk', side: -1, y: 224, delay: 8 },
+      ] },
+    ],
+    boss: {
+      type: 'king', name: 'LADY LACQUER', hp: 260, trigger: 1090, lock: 920,
+      tagline: '"DARLING, THE HAIR IS THE BAND."',
+    },
+    quips: { waves: ['TWENTY YEARS AND STILL NO ENCORE.', 'MORE HAIRSPRAY THAN SENSE.'], boss: 'THAT HAIR HAS MORE VOLUME THAN MY CAREER.' },
+    ending: 'ENDING 2 OF 4: SHOWBIZ, DARLING',
+  });
+
+  // Disco (placeholder): punks and bouncers on a cyan dance floor, slower groove. The second fork
+  // (Disco -> Pop) arrives with the Disco and Pop segments (#28, #29, #30).
+  const disco = route({
+    title: 'DISCO',
+    tint: 'rgba(40,220,255,0.14)',
+    lights: [{ to: 1400, color: '#8eeaff' }],
+    music: Object.assign({}, barTheme, { bpm: 120 }),
+    props: metal2.props, breakables: metal2.breakables,
+    waves: [
+      { trigger: 230, lock: 0, spawns: [
+        { type: 'punk', side: 1, y: 210, delay: 0 },
+        { type: 'punk', side: -1, y: 230, delay: 1.2 },
+        { type: 'groupie', side: 1, y: 220, delay: 3 },
+        { type: 'punk', side: -1, y: 214, delay: 4.5 },
+      ] },
+      { trigger: 640, lock: 380, spawns: [
+        { type: 'punk', side: 1, y: 208, delay: 0 },
+        { type: 'punk', side: -1, y: 232, delay: 0.8 },
+        { type: 'groupie', side: 1, y: 220, delay: 2.5 },
+        { type: 'punk', side: 1, y: 215, delay: 4.5 },
+        { type: 'groupie', side: -1, y: 238, delay: 6.5 },
+        { type: 'roadie', side: -1, y: 224, delay: 8 },
+      ] },
+    ],
+    boss: {
+      type: 'king', name: 'MIRROR BALL MARV', hp: 260, trigger: 1090, lock: 920,
+      tagline: '"STAYIN\' ALIVE? NOT TONIGHT."',
+    },
+    quips: { waves: ['WHO TURNED THE FLOOR INTO A WEAPON?', 'MY SHOES ARE NOT MADE FOR THIS.'], boss: 'I DIDN\'T COME TO DANCE.' },
+    ending: 'ENDING 3 OF 4: THE DANCE FLOOR WINS',
+  });
 
   const lastBar = {
     // Inherited by every segment that does not set its own value.
     defaults: {
-      stage: 'STAGE 1',
+      stage: 'LEVEL 4',
       year: '1984',
       title: 'THE LAST BAR',
       theme: 'Glam rock, heavy metal and MTV culture',
@@ -179,19 +290,15 @@
       ],
       quips: {
         start: 'ANOTHER NIGHT, ANOTHER EMPTY ROOM.',
-        waves: [
-          'I\'VE HAD TOUGHER CROWDS. BARELY.',
-          'TWENTY YEARS AND STILL NO ENCORE.',
-          'A MOHAWK IN 1984? BOLD.',
-          'ONE LAST DOOR. THEN THE KING.',
-        ],
+        waves: ['I\'VE HAD TOUGHER CROWDS. BARELY.'],
         boss: 'LET ME GUESS... YOU PEAKED IN \'72.',
         low: 'MY BACK HURTS MORE THAN MY PRIDE.',
         power: 'TIME FOR A SOLO.',
       },
+      ending: 'THE ROAD ENDS HERE... FOR NOW',
     },
-    start: 'bar',
-    segments: { bar },
+    start: 'metal1',
+    segments: { metal1, metal2, glam, disco },
   };
 
   // ======================================================================
@@ -205,7 +312,6 @@
   //           +- (bottom band) disco1 -+- (top)    disco2 -> boss DISCO
   //                                    +- (bottom) pop ----> boss POP
   // ======================================================================
-  const TOP = [LS.FLOOR_TOP, 203], MID = [203, 224], BOT = [224, LS.FLOOR_BOTTOM];
   const ftWave = (types) => ({
     trigger: 300, lock: 100,
     spawns: types.map((type, i) => ({ type, side: i % 2 ? -1 : 1, y: 206 + i * 12, delay: i * 1.2 })),
@@ -264,7 +370,11 @@
 
   /* A segment with the level defaults filled in. This is what the engine sees as `game.era`,
      so everything that reads era.year / era.title / era.quips / era.width keeps working. */
-  LS.resolveSegment = (level, id) => Object.assign({ id }, level.defaults, level.segments[id]);
+  LS.resolveSegment = (level, id) => {
+    const seg = level.segments[id], era = Object.assign({ id }, level.defaults, seg);
+    era.quips = Object.assign({}, level.defaults.quips, seg.quips);   // a segment can override single quips
+    return era;
+  };
 
   /* Which exit option does a player standing at depth `y` take? The band that contains it,
      or the closest band when he stands in a gap. */
@@ -289,6 +399,7 @@
       const s = segs[sid], at = "segment '" + sid + "' ";
       if (!s.start || typeof s.start.x !== 'number' || typeof s.start.y !== 'number') err(at + 'needs start: { x, y }');
       if (!(s.width >= LS.W)) err(at + 'needs a width of at least one screen');
+      if (s.sceneWidth && (s.sceneX || 0) + s.width > s.sceneWidth) err(at + 'sceneX + width runs past sceneWidth');
       if (!Array.isArray(s.waves)) err(at + 'needs a waves array (it can be empty)');
       if (!s.music) err(at + 'needs music');
       for (const k of ['props', 'breakables', 'lights']) if (!Array.isArray(s[k])) err(at + 'needs a ' + k + ' array (it can be empty)');

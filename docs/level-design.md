@@ -161,5 +161,5 @@ Order of content: the linear levels first (1 and 3), then Level 2 (one fork), th
 
 ## Open points
 
-- The Stage Clear teaser "NEXT ERA: THE 1970S" and the order of the eras in `js/levels.js` must be reconciled with this plan when the Level 4 prototype lands (#15).
+- The Stage Clear teaser now shows the ending of the route that was finished (Level 4 prototype, #15). The order of the eras in `js/levels.js` (1980 is the only playable one) must still be reconciled with this plan as the other levels land.
 - Boss names and signature mechanics are chosen when each boss is designed. The current boss, THE KING OF RIFFS, is the first example (#33).
