@@ -3,11 +3,14 @@
    Screen states:  title -> controls
                    title -> intro -> playing <-> paused
                                      playing -> victory | gameover
+   A level is a graph of segments (levels.js); `era` below is the segment being played.
    Level phases (while playing):
-     advance    the way is open; walking past a trigger starts the next wave / the boss
+     advance    the way is open; walking past a trigger starts the next wave / the boss,
+                and once the waves are done the segment's exit (a door or a fork) opens
      wave       screen locked until every enemy of the wave is down
      bossIntro  scripted entrance, input frozen
      boss       the fight
+     transition fade out, load the next segment, fade in (input frozen)
      bossDead / playerDead   short pause before the result screen */
 (function () {
   'use strict';
@@ -16,19 +19,103 @@
 
   const G = (LS.game = {
     state: 'title', stateT: 0, t: 0,
-    menu: 0, introIndex: 0, introT: 0,
+    menu: 0, opt: 0, menuMsgT: 0, controlsFrom: 'title', introIndex: 0, introT: 0,
     era: null, player: null, enemies: [], boss: null, projectiles: [], props: [],
     breakables: [], items: [], solids: [],
     phase: 'advance', phaseT: 0, waveIndex: 0, pending: [],
     hitstop: 0, slowT: 0, score: 0, cardT: 0, noCharge: false,
-    bubble: null, target: null, targetT: 0, lowWarned: false,
+    bubble: null, target: null, targetT: 0, lowWarned: false, cues: [],
+    level: null, segId: null, startSeg: null, builtSeg: null, route: [], pendingSeg: null, fade: 0,
   });
 
   G.setState = function (s) { G.state = s; G.stateT = 0; };
 
+  /* Boot splash: the developer card, then the LAST SONG card on an old amp. The sounds that go
+     with it can only play once the browser allows audio (first key or tap), so each cue has a
+     window: if audio becomes available inside it, the cue plays late rather than never. */
+  const SPLASH_END = 5.4;
+  const SPLASH_CUES = [
+    { at: 0.4, until: 2.4, sfx: 'plugin' },     // card 1: a guitar is plugged in
+    { at: 2.7, until: 5.0, sfx: 'ampOn' },      // card 2: the amp switches on
+  ];
+  /* Timed sound cues of the splash and the intro. Audio may only be allowed after the screen has
+     started, so a cue plays late if the browser unlocks audio inside its window, else it is dropped. */
+  function startCues(list) { G.cues = list.map((c) => Object.assign({ done: false }, c)); }
+  function playCues() {
+    for (const c of G.cues) {
+      if (!c.done && G.stateT >= c.at && G.stateT <= c.until && LS.Audio.running()) { c.done = true; LS.Audio.sfx(c.sfx); }
+    }
+  }
+  G.startSplash = function () { startCues(SPLASH_CUES); G.setState('splash'); };
+  G.endSplash = function () { G.startIntro(); };
+
+  /* The intro: 11.2 s, no dialogue, no text but the title. Black and an out-of-tune guitar, an amp
+     switching on, a distant crowd, Jack from behind with his guitar, then LAST SONG. It ends in the
+     title menu. The old multi-page story is still there as the 'story' state, out of the flow
+     (reach it with ?screen=story). */
+  const INTRO_END = 11.2;
+  const INTRO_CUES = [
+    { at: 0.5, until: 2.0, sfx: 'guitarOut' },
+    { at: 1.7, until: 3.0, sfx: 'guitarOut' },
+    { at: 3.2, until: 4.6, sfx: 'ampOn' },
+    { at: 4.4, until: 6.2, sfx: 'crowd' },
+    { at: 8.2, until: 9.4, sfx: 'riff' },     // the title lands on a power chord
+  ];
+  G.startIntro = function () { startCues(INTRO_CUES); G.setState('intro'); };
+  G.endIntro = function () { G.enterTitle(); };
+
+  /* The main menu: an empty rock stage with its own slow theme, which the stage lights pulse to. */
+  G.enterTitle = function () { G.setState('title'); LS.Audio.playMusic(LS.MENU_MUSIC); };
+
+  // Menu layout (shared with the renderer, so clicks and taps hit what is drawn).
+  G.MENU = {
+    items: ['PLAY', 'LEVEL SELECT', 'OPTIONS', 'CREDITS'],
+    locked: [false, true, false, false],   // LEVEL SELECT stays locked until the campaign can unlock levels (#31)
+    box: { x: 292, y: 106, w: 176 }, rowY: 114, rowH: 22,
+  };
+  G.OPTIONS_ROWS = ['SOUND', 'CONTROLS', 'BACK'];
+  const OPT_Y = 104, OPT_H = 24;
+  G.OPT = { y: OPT_Y, h: OPT_H };
+
+  /* Which menu row is at canvas point (x, y)? -1 for none. */
+  G.menuHit = function (x, y) {
+    const m = G.MENU;
+    if (x < m.box.x || x > m.box.x + m.box.w) return -1;
+    const i = Math.floor((y - (m.rowY - 4)) / m.rowH);
+    return i >= 0 && i < m.items.length ? i : -1;
+  };
+
+  /* PLAY: a drum hit, the stage lights go out, a spotlight closes in on Jack, then the game starts and
+     fades in (about 1.6 s in all). The screen never shows anything else in between. Until Level 1
+     exists it leads into the current stage. */
+  const LAUNCH_END = 1.25;
+  G.startLaunch = function () {
+    LS.Audio.stopMusic();
+    LS.Audio.sfx('drum');
+    G.setState('launch');
+  };
+
+  G.menuSelect = function (i) {
+    const A = LS.Audio;
+    if (G.MENU.locked[i]) { A.sfx('denied'); G.menuMsgT = 2.2; return; }
+    if (i === 0) { G.startLaunch(); return; }
+    A.sfx('strum');
+    if (i === 2) { G.opt = 0; G.setState('options'); }
+    else if (i === 3) G.setState('credits');
+  };
+
   G.init = function () {
-    G.era = LS.getEra('1980');
-    LS.Background.build(G.era);
+    // ?level=ID picks a level graph, ?seg=ID starts straight in one of its segments (any route).
+    let levelId = LS.params.get('level') || LS.getEra('1980').level;
+    if (!LS.getLevel(levelId)) { console.error("unknown level '" + levelId + "', using 'lastbar'"); levelId = 'lastbar'; }
+    G.level = LS.getLevel(levelId);
+    LS.validateLevel(G.level, levelId).forEach((m) => console.error(m));
+    G.startSeg = LS.params.get('seg') || G.level.start;
+    if (!G.level.segments[G.startSeg]) { console.error("unknown segment '" + G.startSeg + "'"); G.startSeg = G.level.start; }
+    G.era = LS.resolveSegment(G.level, G.startSeg);
+    G.segId = G.startSeg;
+    LS.Background.build(G.era);        // backdrop of the title screen
+    G.builtSeg = G.segId;
     LS.Camera.reset(G.era.width);
     // Development shortcuts: ?start=1 jumps into the level, ?skip=N jumps to wave N / the boss.
     if (LS.params.get('start') === '1') {
@@ -38,29 +125,63 @@
     }
     // ?screen=controls|intro|paused opens a given screen directly (used for visual checks).
     const screen = LS.params.get('screen');
-    if (screen) G.setState(screen);
+    if (screen === 'splash') G.startSplash();
+    else if (screen === 'intro') G.startIntro();
+    else if (screen) G.setState(screen);
+    // The game boots into the splash unless a dev flag asks for something else (?splash=0 goes to the menu).
+    if (!screen && LS.params.get('start') !== '1' && LS.params.get('splash') !== '0') G.startSplash();
+    if (G.state === 'title') LS.Audio.playMusic(LS.MENU_MUSIC);   // booted straight into the menu (?splash=0)
   };
 
   /* Speech bubble over Jack's head. */
   G.say = function (text, delay) { G.bubble = { text, t: 2.8, delay: delay || 0 }; };
 
-  G.startLevel = function () {
-    const era = G.era;
-    G.player = new LS.Player(era.start.x, era.start.y);
-    const hp = parseInt(LS.params.get('hp'), 10);
-    if (hp) G.player.hp = G.player.lagHp = hp;
-    const pw = parseInt(LS.params.get('power'), 10);
-    if (pw) G.player.power = Math.min(100, pw);
+  /* Builds a segment of the level graph: scenery, props, music, camera. `carry` is true when Jack
+     walks in from the previous segment (he keeps his health, score and depth, and only his x
+     resets); false for a fresh start. Nothing of the segment left behind survives, which is what
+     makes a route, once taken, unreachable again. */
+  G.loadSegment = function (id, carry) {
+    const era = LS.resolveSegment(G.level, id);
+    G.era = era; G.segId = id;
+    if (!carry) G.route = [];
+    G.route.push(id);
+    // The scene art is static, so a retry in the same segment (or the build done by init) reuses it.
+    if (G.builtSeg !== id) { LS.Background.build(era); G.builtSeg = id; }
     G.enemies = []; G.boss = null; G.projectiles = []; G.pending = []; G.items = [];
     G.props = era.props;
     G.breakables = era.breakables.map((b) => new LS.Breakable(b.type, b.x, b.y, b.drop));
     G.solids = G.props.concat(G.breakables);
     G.phase = 'advance'; G.phaseT = 0; G.waveIndex = 0;
-    G.hitstop = 0; G.slowT = 0; G.score = 0; G.cardT = 0; G.noCharge = false;
-    G.target = null; G.targetT = 0; G.lowWarned = false;
+    G.cardT = 0; G.target = null; G.targetT = 0; G.bubble = null;
     LS.Effects.reset();
     LS.Camera.reset(era.width);
     LS.Audio.playMusic(era.music);
+    if (carry) {
+      const p = G.player;
+      p.x = era.start.x; p.vx = 0; p.setState('idle');
+      p.y = LS.clamp(p.y, LS.FLOOR_TOP, LS.FLOOR_BOTTOM);
+    }
+  };
+
+  /* Back to the title screen. Its backdrop is the scene of the level's first segment, so a run that
+     ended in a tinted route (Glam, Disco) does not leave that tint on the menu. */
+  G.toTitle = function () {
+    G.era = LS.resolveSegment(G.level, G.startSeg); G.segId = G.startSeg;
+    if (G.builtSeg !== G.startSeg) { LS.Background.build(G.era); G.builtSeg = G.startSeg; }
+    G.enterTitle();
+  };
+
+  G.startLevel = function (fadeIn) {
+    G.player = new LS.Player(0, 0);
+    const hp = parseInt(LS.params.get('hp'), 10);
+    if (hp) G.player.hp = G.player.lagHp = hp;
+    const pw = parseInt(LS.params.get('power'), 10);
+    if (pw) G.player.power = Math.min(100, pw);
+    G.hitstop = 0; G.slowT = 0; G.score = 0; G.noCharge = false; G.lowWarned = false;
+    G.pendingSeg = null; G.fade = fadeIn ? 1 : 0;   // coming from the play transition, the game opens from black
+    G.loadSegment(G.startSeg, false);        // a retry starts again from the level's first segment
+    const era = G.era;
+    G.player.x = era.start.x; G.player.y = era.start.y;
     G.say(era.quips.start, 3);
     // ?spawn=punk,roadie puts those enemies next to Jack right away (development aid)
     const spawn = LS.params.get('spawn');
@@ -79,13 +200,17 @@
     });
   }
 
-  /* Jump straight to wave n (0-based) or to the boss when n >= number of waves. */
+  /* What the player is walking towards: the next wave, else the boss, else the segment's exit. */
+  G.goal = function (era, n) { return era.waves[n] || era.boss || era.exit; };
+
+  /* Jump straight to wave n (0-based) or, when n >= number of waves, to the boss / the exit. */
   G.debugSkip = function (n) {
-    const era = G.era, next = era.waves[n] || era.boss;
+    const era = G.era, next = G.goal(era, n);
     G.enemies = []; G.pending = []; G.projectiles = [];
     G.waveIndex = Math.min(n, era.waves.length);
     G.phase = 'advance';
-    G.player.x = next.trigger - 30;
+    // an exit has no trigger: start the player just inside the locked screen, like the boss trigger
+    G.player.x = (next.trigger !== undefined ? next.trigger : next.lock + 60) - 30;
     LS.Camera.maxX = next.lock;
     LS.Camera.x = LS.clamp(G.player.x - 200, 0, next.lock);
     G.cardT = 3;
@@ -176,6 +301,20 @@
       return;
     }
 
+    // A blow absorbed by Jack's guard: a small ping instead of the full impact (the player sets
+    // `hitResult` in takeHit, so combat.js still knows nothing about blocking). A chip KO falls
+    // through to the normal presentation below.
+    if (target.team === 'player' && target.hitResult === 'block' && !ko) {
+      const fx = target.x + target.facing * 10, fy = target.y - target.z - 32;
+      LS.Effects.ring(fx, fy, 14);
+      LS.Effects.spark(fx, fy, false);
+      LS.Effects.text(target.x, target.y - 72, 'BLOCK', '#b04dff');
+      G.hitstop = 0.03;
+      LS.Camera.shake(def.heavy ? 2.5 : 0.8);
+      LS.Audio.sfx('block');
+      return;
+    }
+
     const heavy = !!def.heavy || ko;
     const dir = attacker ? attacker.facing : (target.facing * -1);
     LS.Effects.spark(target.x - dir * 5, target.y - target.z - (def.hitY || 30), heavy);
@@ -194,6 +333,10 @@
       }
     } else {
       LS.Audio.sfx('hurt');
+      if (target.hitResult === 'break') { // the guard could not take it
+        LS.Audio.sfx('guardbreak');
+        LS.Effects.text(target.x, target.y - 72, 'GUARD BREAK!', '#ff3b30');
+      }
       if (!G.lowWarned && target.hp > 0 && target.hp < target.maxHp * 0.3) {
         G.lowWarned = true;
         G.say(G.era.quips.low, 0.8);
@@ -212,6 +355,14 @@
   // ---------------------------------------------------------------------
   // Level flow
   // ---------------------------------------------------------------------
+  /* Jack walked through an exit option: start the transition into its segment. */
+  G.takeExit = function (option) {
+    G.pendingSeg = option.to;
+    G.phase = 'transition'; G.phaseT = 0; G.fade = 0;
+    G.bubble = null;
+    LS.Audio.sfx('go');
+  };
+
   function updatePhase() {
     const era = G.era, cam = LS.Camera, p = G.player;
 
@@ -224,9 +375,15 @@
     switch (G.phase) {
       case 'advance': {
         const wave = era.waves[G.waveIndex];
-        const next = wave || era.boss;
+        const next = wave || era.boss || era.exit;
         cam.minX = 0;
         cam.maxX = next.lock; // the camera can't scroll past the next arena
+        if (!wave && !era.boss) {
+          // The segment's exit: no trigger, the screen just stops and the way out stays open.
+          // The depth (y) at which Jack crosses the line picks the option: a physical fork.
+          if (p.x > era.exit.at && p.hp > 0) G.takeExit(LS.pickExit(era.exit, p.y));
+          break;
+        }
         if (p.x > next.trigger) {
           G.phaseT = 0;
           cam.minX = cam.maxX = next.lock; // lock the screen
@@ -255,6 +412,23 @@
           G.say(era.quips.waves[G.waveIndex % era.quips.waves.length], 0.4);
           G.phase = 'advance'; G.phaseT = 0; G.waveIndex++;
           LS.Audio.sfx('go');
+        }
+        break;
+      }
+      case 'transition': {
+        // Fade to black, swap the segment while nothing is visible, fade back in.
+        const FADE = 0.45;
+        if (G.pendingSeg) {
+          G.fade = Math.min(1, G.phaseT / FADE);
+          if (G.fade >= 1) {
+            const id = G.pendingSeg;
+            G.pendingSeg = null;
+            G.loadSegment(id, true);
+            G.phase = 'transition'; G.phaseT = 0;   // loadSegment resets the phase: keep fading in
+          }
+        } else {
+          G.fade = Math.max(0, 1 - G.phaseT / FADE);
+          if (G.fade <= 0) { G.phase = 'advance'; G.phaseT = 0; }
         }
         break;
       }
@@ -300,6 +474,7 @@
 
     // These run in real time, even during hit-stop.
     G.cardT += dt;
+    if (G.phase !== 'transition' && G.fade > 0) G.fade = Math.max(0, G.fade - dt / 0.35);   // fade in after the play transition
     LS.Effects.update(dt);
     cam.updateShake(dt);
     if (G.targetT > 0) G.targetT -= dt;
@@ -310,7 +485,7 @@
     G.phaseT += dt;
 
     // --- fighters ---
-    const frozen = G.phase === 'bossIntro' || G.cardT < 1.0;
+    const frozen = G.phase === 'bossIntro' || G.phase === 'transition' || G.cardT < 1.0;
     if (frozen && (p.state === 'walk')) p.setState('idle');
     if (frozen) p.moving = false;
     p.update(dt, frozen ? NO_INPUT : I, G);
@@ -365,20 +540,57 @@
     const ok = I.pressed.start || I.pressed.tap; // "confirm" in menus
 
     switch (G.state) {
-      case 'title':
-        if (I.pressed.up || I.pressed.down) { G.menu = 1 - G.menu; A.sfx('select'); }
-        if (ok || I.pressed.punch) {
-          A.sfx('confirm');
-          if (G.menu === 0) { G.introIndex = 0; G.introT = 0; G.setState('intro'); }
-          else G.setState('controls');
-        }
+      case 'splash':
+        // Enter, Esc or a tap skips it. Checked first, so the key that also unlocks the audio
+        // does not trigger a cue on the very frame the splash ends.
+        if (ok || I.pressed.pause || I.pressed.click || G.stateT > SPLASH_END) { G.endSplash(); break; }
+        playCues();
+        break;
+
+      case 'title': {
+        const n = G.MENU.items.length;
+        if (G.menuMsgT > 0) G.menuMsgT -= dt;
+        if (I.pressed.up) { G.menu = (G.menu + n - 1) % n; A.sfx('pluck'); }
+        if (I.pressed.down) { G.menu = (G.menu + 1) % n; A.sfx('pluck'); }
+        // A click or tap on a row selects it; a tap elsewhere confirms the highlighted one (touch has no Enter).
+        const c = I.pressed.click, hit = c ? G.menuHit(c.x, c.y) : -1;
+        if (hit >= 0) { G.menu = hit; G.menuSelect(hit); }
+        else if (I.pressed.tap || (!c && (ok || I.pressed.punch))) G.menuSelect(G.menu);
+        break;
+      }
+
+      case 'launch':
+        if (G.stateT >= LAUNCH_END) G.startLevel(true);   // input is ignored for the whole transition
+        break;
+
+      case 'options': {
+        const n = G.OPTIONS_ROWS.length, back = () => { A.sfx('pluck'); G.setState('title'); };
+        if (I.pressed.up) { G.opt = (G.opt + n - 1) % n; A.sfx('pluck'); }
+        if (I.pressed.down) { G.opt = (G.opt + 1) % n; A.sfx('pluck'); }
+        const c = I.pressed.click;
+        let pick = -1;
+        if (c) { const i = Math.floor((c.y - (OPT_Y - 4)) / OPT_H); if (c.x > 100 && c.x < 380 && i >= 0 && i < n) { G.opt = i; pick = i; } }
+        if (pick < 0 && (I.pressed.tap || (!c && (ok || I.pressed.punch)))) pick = G.opt;   // a tap elsewhere confirms the highlighted row
+        if (pick === 0) { A.toggleMute(); A.sfx('tap'); }      // SOUND: ON / OFF
+        else if (pick === 1) { A.sfx('strum'); G.controlsFrom = 'options'; G.setState('controls'); }
+        else if (pick === 2 || I.pressed.pause) back();
+        break;
+      }
+
+      case 'credits':
+        if (ok || I.pressed.pause || I.pressed.punch || I.pressed.click) { A.sfx('pluck'); G.setState('title'); }
         break;
 
       case 'controls':
-        if (ok || I.pressed.pause || I.pressed.punch) { A.sfx('select'); G.setState('title'); }
+        if (ok || I.pressed.pause || I.pressed.punch || I.pressed.click) { A.sfx('pluck'); G.setState(G.controlsFrom || 'title'); G.controlsFrom = 'title'; }
         break;
 
-      case 'intro': {
+      case 'intro':
+        if (ok || I.pressed.pause || I.pressed.click || G.stateT > INTRO_END) { G.endIntro(); break; }   // Enter, Esc, a click or a tap skips it
+        playCues();
+        break;
+
+      case 'story': {   // the old multi-page story, kept out of the flow (?screen=story)
         const text = G.era.intro[G.introIndex], before = Math.floor(G.introT * 42);
         G.introT += dt;
         if (before < text.length && Math.floor(G.introT * 42) % 3 === 0 && Math.floor(G.introT * 42) !== before) A.sfx('type');
@@ -407,7 +619,7 @@
         // cannot fire, and the gate only absorbs a last-moment mash as the screen appears.
         if (G.stateT > 0.25) {
           if (ok) { A.sfx('confirm'); G.startLevel(); }
-          else if (I.pressed.pause) { A.stopMusic(); G.setState('title'); }
+          else if (I.pressed.pause) { A.stopMusic(); G.toTitle(); }
         }
         break;
     }

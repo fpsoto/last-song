@@ -136,7 +136,13 @@ Boss design rules:
 
 ## Combat additions
 
-- **Block (#13).** A simple, intuitive defensive block, balanced against attacks, combos and dodges, without complicating the combat system.
+- **Block (#13).** A simple, intuitive defensive block, balanced against attacks, combos and dodges, without complicating the combat system. Rules, all tuned in the `BLOCK` table of `js/player.js`:
+  - **Input:** hold `I` or `Shift`, or the BLOCK touch button. Only on the ground, only against blows from the front: Jack can turn but not walk while guarding.
+  - **Light blows** (not `heavy`, no `knockdown`): 20% of the damage gets through, no flinch, a small slide back.
+  - **Heavy blows** (the roadie's haymaker, boss attacks, the boss shockwave): 50% of the damage gets through and Jack staggers briefly out of the guard, but is never knocked down. Heavy attacks are never fully absorbed.
+  - **Guard meter (60):** a blocked blow costs 1.4x its damage if light and 2.4x if heavy, so a roadie haymaker can be blocked twice and the boss swing once. A blow the guard cannot pay for breaks it: it lands in full and the block is locked for 1 s. The meter refills (22/s, starting 0.6 s after the last blocked blow) only while Jack is not holding a usable guard, and the block cannot be raised with less than 8 left, so turtling in a crowd wears out fast and fights stay about attack and movement (#10).
+  - **Combo and SOLO:** raising the guard ends the punch chain, blocking never charges the SOLO meter, and a punch, kick, jump or the SOLO cancels the block.
+  - **Feedback:** a raised-arms pose, a violet ping with a `BLOCK` tag and a knock sound, a guard bar over Jack's head (red while broken), and `GUARD BREAK!` with its own sound.
 
 ## Introduction and main menu
 
@@ -161,5 +167,5 @@ Order of content: the linear levels first (1 and 3), then Level 2 (one fork), th
 
 ## Open points
 
-- The Stage Clear teaser "NEXT ERA: THE 1970S" and the order of the eras in `js/levels.js` must be reconciled with this plan when the Level 4 prototype lands (#15).
+- The Stage Clear teaser now shows the ending of the route that was finished (Level 4 prototype, #15). The order of the eras in `js/levels.js` (1980 is the only playable one) must still be reconciled with this plan as the other levels land.
 - Boss names and signature mechanics are chosen when each boss is designed. The current boss, THE KING OF RIFFS, is the first example (#33).

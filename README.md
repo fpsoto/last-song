@@ -16,12 +16,16 @@ You are **Jack Ryder**, a 38-year-old musician who never made it. Fight your way
 | Punch (fast; three hits in a row end in a knockdown) | `J` |
 | Kick (slow, strong, knocks down) | `K` |
 | Jump (press `J` or `K` in the air for a flying kick) | `Space` |
+| Block (hold; face the attacker) | `I` or `Shift` |
 | The Last Solo (needs a full meter) | `L` |
 | Start / confirm | `Enter` |
 | Pause | `Esc` |
-| Sound on / off | `M` (or the button in the top-right corner) |
+| Sound on / off | `M` (or the button in the top-right corner, or Options in the menu) |
+| Menu | `W` `S` or arrows to move, `Enter` to choose, `Esc` to go back; a click or tap on an option also picks it |
 
-On touch devices a virtual stick and PUNCH / KICK / START / PAUSE buttons appear automatically.
+On touch devices a virtual stick and PUNCH / KICK / JUMP / BLOCK / SOLO / START / PAUSE buttons appear automatically.
+
+Block: hold it while facing a foe. Light hits shrink to a fifth of their damage and do not stagger you; heavy hits (the roadie's haymaker, the boss, the shockwave) still stagger you for a moment and hurt, but never knock you down. Every blocked hit drains the guard bar over your head, and a hit it cannot pay for breaks it: that hit lands in full and the block is locked for a second. The guard only refills while you are not blocking, blocking never charges the solo, and a punch, a jump or the solo cancels it.
 
 Tip: the boss' shockwave travels along one lane of the floor. Step up or down (`W` / `S`) or jump over it. The punk's charge can be dodged the same way.
 
@@ -74,7 +78,7 @@ js/
   player.js       Jack Ryder
   enemy.js        Roadie and Groupie (data-driven) + AI state machine
   boss.js         The King of Riffs (boss registry)
-  levels.js       era registry: waves, boss, music, texts
+  levels.js       level graphs (segments, forks), era registry, waves, boss, music, texts
   renderer.js     draws the world and every screen
   game.js         global state machine and level flow
   main.js         canvas scaling and game loop
@@ -82,12 +86,12 @@ js/
 
 ### Adding a new decade
 
-The game is organised around **eras** (`js/levels.js`). 1950, 1960 and 1970 are already registered as stubs. To make one playable:
+The game is organised around **eras** (`js/levels.js`). 1950, 1960 and 1970 are already registered as stubs. Each playable era points at a **level graph**: segments of scenery linked by exits, where an exit with several options is a physical fork chosen with the depth axis (the format is documented at the top of `levels.js`). To make an era playable:
 
 1. Add a scene to `LS.Scenes` in `background.js` (`build`, `dynamic`, `foreground`, `prop`).
 2. Add its enemy types to `LS.ENEMY_TYPES` in `enemy.js` and their look/poses in `sprites.js`.
 3. Add its boss class to `LS.BOSSES` in `boss.js`.
-4. Fill in the era entry in `levels.js` (palette, music patterns, waves, boss, texts) and set `available: true`.
+4. Describe its level in `levels.js` (segments with scenery, music patterns, waves and a boss or an exit, plus the shared defaults and texts), point its `LS.ERAS` entry at it and set `available: true`.
 
 ## Development flags
 
@@ -97,7 +101,11 @@ Append these to the URL:
 | --- | --- |
 | `?debug=1` | Draws hit boxes, shows state in the page title, enables keys `1` / `2` (skip to wave 2 / boss) and `3` (boss at 10 HP) |
 | `?start=1` | Skips the menus |
-| `?skip=N` | Starts at wave N+1 (`N` = 1 to 3) or at the boss (`N` = 4); needs `start=1` |
+| `?splash=0` | Boots straight into the title menu instead of the splash and the intro (also skipped by `start=1` and `screen=...`) |
+| `?screen=intro` | Opens a screen directly: `splash`, `intro`, `title`, `options`, `credits`, `story` (the old multi-page story), `controls`, `paused` |
+| `?skip=N` | Starts at wave N+1 of the segment, or at its boss / fork when `N` is past its last wave (`N` = 2 for the opening of Level 4); needs `start=1` |
+| `?level=ID` | Plays another level graph (`lastbar` by default; `forktest` is a small fixture with both Level 4 forks) |
+| `?seg=ID` | Starts straight in a segment of the level, so any route can be reached directly (Level 4: `metal1`, `metal2`, `glam`, `disco`; for example `?seg=glam&start=1`) |
 | `?power=100` | Starts with a full solo meter |
 | `?spawn=punk,roadie` | Puts those enemies next to Jack right away |
 | `?seq=jump:2,kick:2.2` | Presses those actions when the game clock reaches the given seconds |

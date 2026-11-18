@@ -7,6 +7,7 @@
 
   let ctx = null, master = null, sfxBus = null, musicBus = null, distBus = null, noiseBuf = null;
   let song = null, step = 0, nextTime = 0;
+  let songOrigin = 0, songStepDur = 0;   // audio-clock time of step 0 and the length of a step (for A.beat)
 
   /* Create the audio graph on the first user gesture. */
   A.unlock = function () {
@@ -14,6 +15,7 @@
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     try { ctx = new AC(); } catch (e) { ctx = null; return; }
+    if (ctx.state === 'suspended') ctx.resume();   // some browsers create it suspended even inside a gesture
 
     master = ctx.createGain();
     master.gain.value = A.muted ? 0 : 0.8;
@@ -38,6 +40,19 @@
     const data = noiseBuf.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
   };
+
+  /* Where the current song is, in beats (fractional). Visuals use it to pulse in time with the
+     music. When the audio is not running (muted by the browser, not unlocked yet) it falls back to
+     a clock of its own at the same tempo, so the lights still flash. */
+  A.beat = function (fallbackT) {
+    if (song && ctx && ctx.state === 'running' && songStepDur) return Math.max(0, (ctx.currentTime - songOrigin) / (songStepDur * 4));
+    const bpm = (song && song.bpm) || (LS.MENU_MUSIC && LS.MENU_MUSIC.bpm) || 100;
+    return (fallbackT || 0) * bpm / 60;
+  };
+
+  /* Browsers keep audio suspended until a key press or tap. Callers that want a sound at a precise
+     moment (the splash) use this to wait for it instead of firing into the void. */
+  A.running = function () { return !!ctx && ctx.state === 'running'; };
 
   function label() {
     const b = document.getElementById('mute');
@@ -92,6 +107,60 @@
     heavy() { noise(0.17, 0.55, 'lowpass', 1500); tone('sine', 160, 40, 0.24, 0.7); tone('square', 320, 60, 0.12, 0.18); },
     hurt() { tone('sawtooth', 340, 110, 0.18, 0.22); noise(0.06, 0.25, 'lowpass', 1800); },
     ko() { tone('square', 520, 60, 0.42, 0.2); noise(0.2, 0.2, 'lowpass', 900); },
+    // Play transition: one big drum hit (kick, snare and a crash that rings out as the lights die).
+    drum() {
+      const t = ctx.currentTime;
+      tone('sine', 160, 40, 0.3, 0.9, t); tone('triangle', 220, 110, 0.12, 0.4, t);
+      noise(0.18, 0.55, 'highpass', 1800, t); noise(0.7, 0.25, 'highpass', 6000, t + 0.02);
+    },
+    // Menu: a soft guitar pluck for moving, a power-chord strum for choosing, a dull knock for
+    // "locked", and an amp-cabinet tap for toggles.
+    pluck() { tone('triangle', 330, 300, 0.18, 0.2); tone('sawtooth', 331, 300, 0.12, 0.05); noise(0.02, 0.1, 'highpass', 3000); },
+    strum() { chord(147, 0.4); noise(0.1, 0.2, 'highpass', 1500); },
+    denied() { const t = ctx.currentTime; tone('square', 180, 150, 0.1, 0.18, t); tone('square', 140, 110, 0.14, 0.18, t + 0.11); },
+    tap() { noise(0.03, 0.3, 'bandpass', 800); tone('sine', 90, 60, 0.08, 0.35); },
+    // Intro: three strings strummed badly out of tune (the beating of the detuned pairs is the point).
+    guitarOut() {
+      const t = ctx.currentTime;
+      [[82.4 * 0.955, 0], [110 * 1.04, 0.07], [146.8 * 0.94, 0.14]].forEach(([f, d]) => {
+        tone('triangle', f, f * 0.992, 1.7, 0.24, t + d);
+        tone('sawtooth', f * 1.011, f * 1.003, 1.3, 0.07, t + d);
+      });
+      noise(0.05, 0.18, 'highpass', 2500, t);
+    },
+    // Intro: a crowd roaring in the distance: filtered noise that swells and fades (about 3.4 s).
+    crowd() {
+      const t = ctx.currentTime;
+      [['bandpass', 650, 0.3], ['lowpass', 260, 0.35]].forEach(([type, freq, peak]) => {
+        const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+        const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0008, t);
+        g.gain.linearRampToValueAtTime(peak, t + 1.3);
+        g.gain.linearRampToValueAtTime(peak * 0.55, t + 2.3);
+        g.gain.exponentialRampToValueAtTime(0.0008, t + 3.4);
+        s.connect(f); f.connect(g); g.connect(sfxBus);
+        s.start(t, Math.random() * 0.5); s.stop(t + 3.5);
+      });
+    },
+    // Splash: a jack plugged into a guitar (thump, crackle, mains hum) ...
+    plugin() {
+      const t = ctx.currentTime;
+      noise(0.09, 0.55, 'lowpass', 380, t); tone('sine', 75, 48, 0.28, 0.55, t);
+      noise(0.05, 0.25, 'highpass', 3200, t + 0.06); noise(0.04, 0.2, 'highpass', 2600, t + 0.13);
+      tone('sine', 60, 60, 0.7, 0.14, t + 0.1);
+    },
+    // ... and an amplifier switching on (relay click, then the valves warming up).
+    ampOn() {
+      const t = ctx.currentTime;
+      noise(0.03, 0.5, 'highpass', 2000, t); tone('square', 180, 90, 0.05, 0.25, t);
+      tone('sawtooth', 55, 110, 0.9, 0.1, t + 0.08, distBus); tone('sine', 60, 60, 1.1, 0.2, t + 0.08);
+      noise(0.9, 0.08, 'bandpass', 5000, t + 0.1);
+    },
+    // A blow absorbed by the guard: a dull, metallic knock (clearly not a hit, not a miss).
+    block() { noise(0.06, 0.3, 'bandpass', 1900); tone('triangle', 540, 330, 0.09, 0.26); tone('square', 120, 70, 0.07, 0.14); },
+    // The guard gives way: a harsher crack than a normal hit.
+    guardbreak() { noise(0.2, 0.5, 'bandpass', 2600); tone('sawtooth', 700, 90, 0.26, 0.3); tone('sine', 140, 40, 0.2, 0.5); },
     thud() { tone('sine', 95, 35, 0.16, 0.6); noise(0.05, 0.2, 'lowpass', 600); },
     select() { tone('square', 660, 660, 0.05, 0.14); },
     confirm() { const t = ctx.currentTime; [659, 784, 988, 1319].forEach((f, i) => tone('square', f, f, 0.09, 0.14, t + i * 0.06)); },
@@ -158,6 +227,7 @@
     const d = 60 / song.bpm / 4; // one 16th note
     if (nextTime < ctx.currentTime - 0.2) nextTime = ctx.currentTime + 0.05;
     while (nextTime < ctx.currentTime + 0.12) {
+      songOrigin = nextTime - step * d; songStepDur = d;
       try { scheduleStep(step, nextTime, d); } catch (e) { /* ignore */ }
       nextTime += d;
       step++;

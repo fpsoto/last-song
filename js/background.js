@@ -654,23 +654,38 @@
   // Renderer-facing API
   // =====================================================================
   const B = (LS.Background = {});
-  let canvas = null, scene = null;
+  let canvas = null, scene = null, sceneX = 0, tint = null;
 
+  /* A segment may show only a slice of a bigger scene: `sceneWidth` is the full width the scene is
+     painted at and `sceneX` is the scene x that the segment's local x = 0 corresponds to. That is
+     how one long stage becomes several segments of a level graph without a visible seam: the
+     next segment simply starts where the previous one stopped. Gameplay data (props, waves,
+     camera) stays in segment-local x; only the art layers below add the offset.
+     `tint` is an optional colour wash over the art, a cheap way to give a placeholder route
+     its own palette. */
   B.build = function (era) {
     scene = LS.Scenes[era.background];
-    canvas = LS.makeCanvas(era.width, LS.H);
-    scene.build(canvas.getContext('2d'), era);
+    sceneX = era.sceneX || 0;
+    tint = era.tint || null;
+    const w = era.sceneWidth || era.width;
+    canvas = LS.makeCanvas(w, LS.H);
+    scene.build(canvas.getContext('2d'), Object.assign({}, era, { width: w }));
   };
+
+  /* How far a camera can pan over the art (used by the menu backdrop). */
+  B.panSpan = function () { return Math.max(0, canvas.width - sceneX - LS.W); };
 
   /* Blits the visible slice of the pre-rendered art, then the animated layer on top. */
   B.draw = function (ctx, camX, t, hot) {
-    ctx.drawImage(canvas, camX, 0, LS.W, LS.H, 0, 0, LS.W, LS.H);
+    const cx = camX + sceneX;
+    ctx.drawImage(canvas, cx, 0, LS.W, LS.H, 0, 0, LS.W, LS.H);
     ctx.save();
-    ctx.translate(-camX, 0);
+    ctx.translate(-cx, 0);
     scene.dynamic(ctx, t, hot);
     ctx.restore();
+    if (tint) { ctx.fillStyle = tint; ctx.fillRect(0, 0, LS.W, LS.H); }
   };
 
-  B.drawForeground = function (ctx, camX, t) { scene.foreground(ctx, camX, t); };
+  B.drawForeground = function (ctx, camX, t) { scene.foreground(ctx, camX + sceneX, t); };
   B.drawProp = function (ctx, p) { scene.prop(ctx, p); };
 })();
