@@ -132,7 +132,7 @@
     // Decade + stage name
     T.shadow(ctx, era.year, 240, 3, '#ff2e88', 2, 'center', '#3a0a3a');
     T.draw(ctx, era.title, 240, 17, '#28dcff', 1, 'center');
-    T.draw(ctx, 'STAGE 1', 240, 24, '#7d6f9c', 1, 'center');
+    T.draw(ctx, era.stage || 'STAGE 1', 240, 24, '#7d6f9c', 1, 'center');
 
     // Last enemy hit (name + life bar), classic beat 'em up style
     const e = g.target;
