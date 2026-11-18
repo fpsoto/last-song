@@ -16,12 +16,15 @@ You are **Jack Ryder**, a 38-year-old musician who never made it. Fight your way
 | Punch (fast; three hits in a row end in a knockdown) | `J` |
 | Kick (slow, strong, knocks down) | `K` |
 | Jump (press `J` or `K` in the air for a flying kick) | `Space` |
+| Block (hold; face the attacker) | `I` or `Shift` |
 | The Last Solo (needs a full meter) | `L` |
 | Start / confirm | `Enter` |
 | Pause | `Esc` |
 | Sound on / off | `M` (or the button in the top-right corner) |
 
-On touch devices a virtual stick and PUNCH / KICK / START / PAUSE buttons appear automatically.
+On touch devices a virtual stick and PUNCH / KICK / JUMP / BLOCK / SOLO / START / PAUSE buttons appear automatically.
+
+Block: hold it while facing a foe. Light hits shrink to a fifth of their damage and do not stagger you; heavy hits (the roadie's haymaker, the boss, the shockwave) still stagger you for a moment and hurt, but never knock you down. Every blocked hit drains the guard bar over your head, and a hit it cannot pay for breaks it: that hit lands in full and the block is locked for a second. The guard only refills while you are not blocking, blocking never charges the solo, and a punch, a jump or the solo cancels it.
 
 Tip: the boss' shockwave travels along one lane of the floor. Step up or down (`W` / `S`) or jump over it. The punk's charge can be dodged the same way.
 

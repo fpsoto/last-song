@@ -133,9 +133,15 @@ body.touch #touch > * { pointer-events: auto; }
   right: max(14px, env(safe-area-inset-right));
   bottom: max(14px, env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: repeat(2, 66px);
+  /* Three columns: SOLO and JUMP on top, BLOCK / KICK / PUNCH below (the thumb rests on PUNCH). */
+  grid-template-columns: repeat(3, 66px);
   gap: 8px;
 }
+.tbtn.solo { grid-column: 2; grid-row: 1; }
+.tbtn.jump { grid-column: 3; grid-row: 1; }
+.tbtn.block { grid-column: 1; grid-row: 2; }
+.tbtn.kick { grid-column: 2; grid-row: 2; }
+.tbtn.punch { grid-column: 3; grid-row: 2; }
 .tbtn {
   width: 66px;
   height: 66px;
@@ -150,6 +156,7 @@ body.touch #touch > * { pointer-events: auto; }
 .tbtn.jump { background: rgba(46, 232, 106, 0.4); }
 .tbtn.solo { background: rgba(255, 225, 74, 0.4); }
 .tbtn.kick { background: rgba(40, 220, 255, 0.42); }
+.tbtn.block { background: rgba(176, 77, 255, 0.45); }
 .tbtn:active, .sbtn:active { filter: brightness(1.5); }
 
 #sys {
@@ -173,6 +180,12 @@ body.touch #touch > * { pointer-events: auto; }
 /* Portrait phones: screen on top, controls below */
 @media (orientation: portrait) {
   body.touch { align-items: flex-start; padding-top: 44px; }
+}
+
+/* Narrow phones: smaller action buttons so the 3-column grid clears the virtual stick */
+@media (max-width: 400px) {
+  #actions { grid-template-columns: repeat(3, 54px); gap: 6px; }
+  .tbtn { width: 54px; height: 54px; font-size: 10px; }
 }
 
 @media (max-height: 380px) {
