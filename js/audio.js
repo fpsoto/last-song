@@ -97,6 +97,30 @@
     heavy() { noise(0.17, 0.55, 'lowpass', 1500); tone('sine', 160, 40, 0.24, 0.7); tone('square', 320, 60, 0.12, 0.18); },
     hurt() { tone('sawtooth', 340, 110, 0.18, 0.22); noise(0.06, 0.25, 'lowpass', 1800); },
     ko() { tone('square', 520, 60, 0.42, 0.2); noise(0.2, 0.2, 'lowpass', 900); },
+    // Intro: three strings strummed badly out of tune (the beating of the detuned pairs is the point).
+    guitarOut() {
+      const t = ctx.currentTime;
+      [[82.4 * 0.955, 0], [110 * 1.04, 0.07], [146.8 * 0.94, 0.14]].forEach(([f, d]) => {
+        tone('triangle', f, f * 0.992, 1.7, 0.24, t + d);
+        tone('sawtooth', f * 1.011, f * 1.003, 1.3, 0.07, t + d);
+      });
+      noise(0.05, 0.18, 'highpass', 2500, t);
+    },
+    // Intro: a crowd roaring in the distance: filtered noise that swells and fades (about 3.4 s).
+    crowd() {
+      const t = ctx.currentTime;
+      [['bandpass', 650, 0.3], ['lowpass', 260, 0.35]].forEach(([type, freq, peak]) => {
+        const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+        const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0008, t);
+        g.gain.linearRampToValueAtTime(peak, t + 1.3);
+        g.gain.linearRampToValueAtTime(peak * 0.55, t + 2.3);
+        g.gain.exponentialRampToValueAtTime(0.0008, t + 3.4);
+        s.connect(f); f.connect(g); g.connect(sfxBus);
+        s.start(t, Math.random() * 0.5); s.stop(t + 3.5);
+      });
+    },
     // Splash: a jack plugged into a guitar (thump, crackle, mains hum) ...
     plugin() {
       const t = ctx.currentTime;
