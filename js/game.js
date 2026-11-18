@@ -84,6 +84,14 @@
     }
   };
 
+  /* Back to the title screen. Its backdrop is the scene of the level's first segment, so a run that
+     ended in a tinted route (Glam, Disco) does not leave that tint on the menu. */
+  G.toTitle = function () {
+    G.era = LS.resolveSegment(G.level, G.startSeg); G.segId = G.startSeg;
+    if (G.builtSeg !== G.startSeg) { LS.Background.build(G.era); G.builtSeg = G.startSeg; }
+    G.setState('title');
+  };
+
   G.startLevel = function () {
     G.player = new LS.Player(0, 0);
     const hp = parseInt(LS.params.get('hp'), 10);
@@ -476,7 +484,7 @@
         // cannot fire, and the gate only absorbs a last-moment mash as the screen appears.
         if (G.stateT > 0.25) {
           if (ok) { A.sfx('confirm'); G.startLevel(); }
-          else if (I.pressed.pause) { A.stopMusic(); G.setState('title'); }
+          else if (I.pressed.pause) { A.stopMusic(); G.toTitle(); }
         }
         break;
     }

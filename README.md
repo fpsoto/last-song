@@ -97,9 +97,9 @@ Append these to the URL:
 | --- | --- |
 | `?debug=1` | Draws hit boxes, shows state in the page title, enables keys `1` / `2` (skip to wave 2 / boss) and `3` (boss at 10 HP) |
 | `?start=1` | Skips the menus |
-| `?skip=N` | Starts at wave N+1 of the segment (`N` = 1 to 3), or at its boss / exit when `N` is past the last wave; needs `start=1` |
+| `?skip=N` | Starts at wave N+1 of the segment, or at its boss / fork when `N` is past its last wave (`N` = 2 for the opening of Level 4); needs `start=1` |
 | `?level=ID` | Plays another level graph (`lastbar` by default; `forktest` is a small fixture with both Level 4 forks) |
-| `?seg=ID` | Starts straight in a segment of the level, so any route can be reached directly (for example `?level=forktest&seg=pop&start=1`) |
+| `?seg=ID` | Starts straight in a segment of the level, so any route can be reached directly (Level 4: `metal1`, `metal2`, `glam`, `disco`; for example `?seg=glam&start=1`) |
 | `?power=100` | Starts with a full solo meter |
 | `?spawn=punk,roadie` | Puts those enemies next to Jack right away |
 | `?seq=jump:2,kick:2.2` | Presses those actions when the game clock reaches the given seconds |

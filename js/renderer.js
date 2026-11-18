@@ -167,7 +167,7 @@
 
   /* The bar itself, slowly panning and darkened, is the backdrop of the menus. */
   function backdrop(g, ctx, dark) {
-    const span = g.era.width - LS.W;
+    const span = LS.Background.panSpan();
     const camX = Math.round((0.5 - 0.5 * Math.cos(g.t * 0.07)) * span);
     LS.Background.draw(ctx, camX, g.t, false);
     rect(ctx, 0, 0, LS.W, LS.H, 'rgba(8,3,16,' + dark + ')');
@@ -274,7 +274,7 @@
     T.shadow(ctx, 'YOU ROCK... BUT YOU\'RE STILL BROKE.', 240, 68, '#ffe14a', 2, 'center', '#b0241e');
     bigSprite(ctx, 'jack', 240, 202, 2, g.t, 1);
     T.draw(ctx, 'SCORE ' + String(g.score).padStart(6, '0'), 240, 212, '#f4f0e8', 1, 'center');
-    T.draw(ctx, 'NEXT ERA: THE 1970S - COMING SOON', 240, 224, '#ff9ad0', 1, 'center');
+    T.draw(ctx, g.era.ending || 'THE ROAD ENDS HERE... FOR NOW', 240, 224, '#ff9ad0', 1, 'center'); // route-specific ending
     if (g.stateT > 1.5 && ((g.t * 2.5) | 0) % 2 === 0) T.shadow(ctx, 'PRESS ENTER', 240, 240, '#ffe14a', 1, 'center');
     // Same hint, colour and style as Game Over; shown with the prompt so the exit is discoverable
     if (g.stateT > 1.5) T.draw(ctx, 'ESC - TITLE', 240, 254, '#7d6f9c', 1, 'center');
