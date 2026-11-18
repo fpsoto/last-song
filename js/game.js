@@ -24,7 +24,7 @@
     breakables: [], items: [], solids: [],
     phase: 'advance', phaseT: 0, waveIndex: 0, pending: [],
     hitstop: 0, slowT: 0, score: 0, cardT: 0, noCharge: false,
-    bubble: null, target: null, targetT: 0, lowWarned: false, splashCues: [],
+    bubble: null, target: null, targetT: 0, lowWarned: false, cues: [],
     level: null, segId: null, startSeg: null, builtSeg: null, route: [], pendingSeg: null, fade: 0,
   });
 
@@ -38,11 +38,31 @@
     { at: 0.4, until: 2.4, sfx: 'plugin' },     // card 1: a guitar is plugged in
     { at: 2.7, until: 5.0, sfx: 'ampOn' },      // card 2: the amp switches on
   ];
-  G.startSplash = function () {
-    G.splashCues = SPLASH_CUES.map((c) => Object.assign({ done: false }, c));
-    G.setState('splash');
-  };
-  G.endSplash = function () { G.setState('title'); };
+  /* Timed sound cues of the splash and the intro. Audio may only be allowed after the screen has
+     started, so a cue plays late if the browser unlocks audio inside its window, else it is dropped. */
+  function startCues(list) { G.cues = list.map((c) => Object.assign({ done: false }, c)); }
+  function playCues() {
+    for (const c of G.cues) {
+      if (!c.done && G.stateT >= c.at && G.stateT <= c.until && LS.Audio.running()) { c.done = true; LS.Audio.sfx(c.sfx); }
+    }
+  }
+  G.startSplash = function () { startCues(SPLASH_CUES); G.setState('splash'); };
+  G.endSplash = function () { G.startIntro(); };
+
+  /* The intro: 11.2 s, no dialogue, no text but the title. Black and an out-of-tune guitar, an amp
+     switching on, a distant crowd, Jack from behind with his guitar, then LAST SONG. It ends in the
+     title menu. The old multi-page story is still there as the 'story' state, out of the flow
+     (reach it with ?screen=story). */
+  const INTRO_END = 11.2;
+  const INTRO_CUES = [
+    { at: 0.5, until: 2.0, sfx: 'guitarOut' },
+    { at: 1.7, until: 3.0, sfx: 'guitarOut' },
+    { at: 3.2, until: 4.6, sfx: 'ampOn' },
+    { at: 4.4, until: 6.2, sfx: 'crowd' },
+    { at: 8.2, until: 9.4, sfx: 'riff' },     // the title lands on a power chord
+  ];
+  G.startIntro = function () { startCues(INTRO_CUES); G.setState('intro'); };
+  G.endIntro = function () { LS.Audio.stopMusic(); G.setState('title'); };
 
   G.init = function () {
     // ?level=ID picks a level graph, ?seg=ID starts straight in one of its segments (any route).
@@ -66,6 +86,7 @@
     // ?screen=controls|intro|paused opens a given screen directly (used for visual checks).
     const screen = LS.params.get('screen');
     if (screen === 'splash') G.startSplash();
+    else if (screen === 'intro') G.startIntro();
     else if (screen) G.setState(screen);
     // The game boots into the splash unless a dev flag asks for something else (?splash=0 goes to the menu).
     if (!screen && LS.params.get('start') !== '1' && LS.params.get('splash') !== '0') G.startSplash();
@@ -481,16 +502,14 @@
         // Enter, Esc or a tap skips it. Checked first, so the key that also unlocks the audio
         // does not trigger a cue on the very frame the splash ends.
         if (ok || I.pressed.pause || G.stateT > SPLASH_END) { G.endSplash(); break; }
-        for (const c of G.splashCues) {
-          if (!c.done && G.stateT >= c.at && G.stateT <= c.until && A.running()) { c.done = true; A.sfx(c.sfx); }
-        }
+        playCues();
         break;
 
       case 'title':
         if (I.pressed.up || I.pressed.down) { G.menu = 1 - G.menu; A.sfx('select'); }
         if (ok || I.pressed.punch) {
           A.sfx('confirm');
-          if (G.menu === 0) { G.introIndex = 0; G.introT = 0; G.setState('intro'); }
+          if (G.menu === 0) G.startLevel();
           else G.setState('controls');
         }
         break;
@@ -499,7 +518,12 @@
         if (ok || I.pressed.pause || I.pressed.punch) { A.sfx('select'); G.setState('title'); }
         break;
 
-      case 'intro': {
+      case 'intro':
+        if (ok || I.pressed.pause || G.stateT > INTRO_END) { G.endIntro(); break; }   // Enter, Esc or a tap skips it
+        playCues();
+        break;
+
+      case 'story': {   // the old multi-page story, kept out of the flow (?screen=story)
         const text = G.era.intro[G.introIndex], before = Math.floor(G.introT * 42);
         G.introT += dt;
         if (before < text.length && Math.floor(G.introT * 42) % 3 === 0 && Math.floor(G.introT * 42) !== before) A.sfx('type');

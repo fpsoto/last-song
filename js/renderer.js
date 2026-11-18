@@ -304,7 +304,121 @@
     if (((g.t * 2.5) | 0) % 2 === 0) T.shadow(ctx, 'PRESS ENTER TO GO BACK', 240, 232, '#ffe14a', 1, 'center');
   }
 
+  // ---------------------------------------------------------------------
+  // Intro: a 11.2 s wordless sequence (see game.js for the timeline and its sounds)
+  //   0.0  black                   0.5 / 1.7  an out-of-tune guitar (a string trembles)
+  //   3.2  the amp switches on     4.4  stage lights and the crowd in the dark
+  //   6.0  Jack from behind        8.2  the title lands (flash), 10.7 fade out
+  // ---------------------------------------------------------------------
+  const BEAMS = ['#ff2e4a', '#9b4dff', '#2e6bff', '#ff2e88'];
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
+  /* A thin string that trembles for a moment after each pluck: the only light in the first seconds. */
+  function drawString(ctx, t) {
+    for (const p of [0.5, 1.7]) {
+      const d = t - p;
+      if (d < 0 || d > 1.3) continue;
+      const a = 1 - d / 1.3;
+      for (let x = 110; x < 370; x += 2) {
+        const env = Math.sin(((x - 110) / 260) * Math.PI);
+        const y = 135 + Math.sin(x * 0.09 + d * 55) * 5 * a * a * env + (d < 0.15 ? Math.sin(x * 7.3 + t * 91) : 0); // a deterministic shiver: drawing never touches the game's RNG
+        ctx.globalAlpha = 0.25 + 0.6 * a;
+        rect(ctx, x, Math.round(y), 2, 1, '#ffd9a0');
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  /* The backline amp: a slice of the grille texture with a red power LED that comes on with its click. */
+  function drawBacklineAmp(ctx, t, bright) {
+    const k = clamp01((t - 3.2) / 0.6);
+    ctx.globalAlpha = k * (0.55 + 0.45 * bright);
+    ctx.drawImage(ampTexture(), 180, 100, 120, 86, 180, 100, 120, 86);
+    rect(ctx, 180, 100, 120, 3, '#4a443c'); rect(ctx, 180, 183, 120, 3, '#0a0806');
+    rect(ctx, 180, 100, 2, 86, '#0a0806'); rect(ctx, 298, 100, 2, 86, '#0a0806');
+    ctx.globalAlpha = k;
+    rect(ctx, 286, 106, 8, 5, '#1a0606');
+    rect(ctx, 287, 107, 6, 3, ((t * 24) | 0) % 11 === 0 ? '#3a0c0a' : '#ff3b30');
+    ctx.globalAlpha = k * 0.22; rect(ctx, 282, 103, 16, 11, '#ff3b30');
+    ctx.globalAlpha = 1;
+  }
+
+  /* Jack seen from behind, backlit: a dark silhouette with a pink rim light, the guitar neck raised. */
+  function drawJackBack(ctx, t, base) {
+    const k = clamp01((t - 6.0) / 0.9), sway = Math.round(Math.sin(t * 1.6)), cx = 240 + sway;
+    const raise = clamp01((t - 7.4) / 0.8) * 12;
+    ctx.globalAlpha = k;
+    const g = ctx.createRadialGradient(240, base - 70, 6, 240, base - 70, 130);   // the stage glow behind him
+    g.addColorStop(0, 'rgba(255,170,230,0.6)'); g.addColorStop(1, 'rgba(255,170,230,0)');
+    ctx.fillStyle = g; ctx.fillRect(100, base - 200, 280, 220);
+    const D = '#0b0612', DD = '#050308', RIM = '#ff9ac8';
+    rect(ctx, cx - 14, base - 26, 12, 26, D); rect(ctx, cx + 2, base - 26, 12, 26, D);          // legs
+    rect(ctx, cx - 16, base - 5, 15, 5, DD); rect(ctx, cx + 1, base - 5, 15, 5, DD);            // boots
+    rect(ctx, cx - 28, base - 70, 56, 46, D); rect(ctx, cx - 1, base - 66, 2, 42, DD);          // jacket, seam
+    rect(ctx, cx - 34, base - 66, 8, 40, D);                                                    // left arm
+    for (let i = 0; i < 24; i++) rect(ctx, cx - 24 + i * 2, base - 68 + Math.round(i * 1.6), 3, 3, '#2a2234'); // strap
+    rect(ctx, cx - 4, base - 78, 8, 9, '#1a1018');                                              // neck
+    rect(ctx, cx - 10, base - 98, 20, 22, '#120a14');                                           // head
+    rect(ctx, cx - 14, base - 102, 28, 16, DD); rect(ctx, cx - 15, base - 92, 30, 24, DD);      // hair
+    rect(ctx, cx + 24, base - 66, 8, 20, D);                                                    // right arm, bent...
+    for (let i = 0; i < 12; i++) rect(ctx, cx + 28 + i, base - 48 - i * 2, 6, 5, D);
+    for (let i = 0; i < 40; i++) rect(ctx, cx + 38 + i, Math.round(base - 62 - (i * (50 + raise)) / 40), 3, 3, '#1c1210'); // ...holding the guitar neck
+    rect(ctx, cx + 76, Math.round(base - 120 - raise), 7, 10, '#1c1210');                       // headstock
+    // rim light on the top edges
+    ctx.globalAlpha = k * 0.9;
+    rect(ctx, cx - 28, base - 70, 56, 1, RIM); rect(ctx, cx - 14, base - 102, 28, 1, RIM);
+    rect(ctx, cx - 15, base - 92, 1, 24, RIM); rect(ctx, cx + 14, base - 92, 1, 24, RIM);
+    ctx.globalAlpha = 1;
+  }
+
+  /* The crowd: silhouettes along the bottom edge, some with raised arms, bobbing to nothing in particular. */
+  function drawCrowd(ctx, t, k) {
+    ctx.globalAlpha = k;
+    for (let i = 0; i < 26; i++) {
+      const x = i * 19 + (i % 3) * 4 - 6, bob = Math.round(Math.sin(t * 3 + i * 1.7) * 2);
+      const y = 240 + ((i * 7) % 6) + bob;
+      rect(ctx, x, y, 11, 11, '#07040c'); rect(ctx, x - 5, y + 11, 21, 30, '#07040c');
+      rect(ctx, x, y, 11, 1, '#5a3a7a');
+      if (i % 2 === 0) { const lift = Math.round(Math.sin(t * 4 + i) * 3); rect(ctx, x - 5, y - 12 + lift, 3, 16, '#07040c'); rect(ctx, x - 5, y - 12 + lift, 3, 1, '#5a3a7a'); }
+    }
+    ctx.globalAlpha = 1;
+  }
+
   function drawIntro(g, ctx) {
+    const t = g.stateT;
+    rect(ctx, 0, 0, LS.W, LS.H, '#000');
+    drawString(ctx, t);
+
+    // stage lights sweeping behind everything once the crowd has roared up
+    const lk = clamp01((t - 4.4) / 1.6);
+    if (lk > 0) {
+      for (let i = 0; i < 4; i++) {
+        const x0 = 70 + i * 113, sway = Math.sin(t * 0.9 + i * 1.3) * 45;
+        const gr = ctx.createLinearGradient(0, 0, 0, LS.H);
+        gr.addColorStop(0, BEAMS[i]); gr.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.globalAlpha = 0.28 * lk * (0.7 + 0.3 * Math.sin(t * 5 + i));
+        ctx.fillStyle = gr;
+        ctx.beginPath(); ctx.moveTo(x0, 0); ctx.lineTo(x0 + sway - 34, LS.H); ctx.lineTo(x0 + sway + 34, LS.H); ctx.closePath(); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+    if (t > 3.2) drawBacklineAmp(ctx, t, lk);
+    if (t > 6.0) drawJackBack(ctx, t, 246);
+    if (lk > 0) drawCrowd(ctx, t, lk);
+
+    // the title lands with a flash
+    if (t > 8.2) {
+      const a = clamp01((t - 8.2) / 0.25), flash = clamp01(0.9 - (t - 8.2) * 2.6);
+      ctx.globalAlpha = a;
+      logo(ctx, g, 50);                       // same spot as on the title menu, so the cut is seamless
+      if (flash > 0) { ctx.globalAlpha = flash; rect(ctx, 0, 0, LS.W, LS.H, '#fff'); }
+      ctx.globalAlpha = 1;
+    }
+    if (t > 10.7) { ctx.globalAlpha = clamp01((t - 10.7) / 0.5); rect(ctx, 0, 0, LS.W, LS.H, '#000'); ctx.globalAlpha = 1; }
+  }
+
+  /* The old multi-page story, out of the flow now (?screen=story). */
+  function drawStory(g, ctx) {
     const T = LS.Text;
     backdrop(g, ctx, 0.86);
     rect(ctx, 0, 0, LS.W, 34, '#000'); rect(ctx, 0, LS.H - 34, LS.W, 34, '#000'); // letterbox
@@ -363,6 +477,7 @@
       case 'title': drawTitle(g, ctx); break;
       case 'controls': drawControls(g, ctx); break;
       case 'intro': drawIntro(g, ctx); break;
+      case 'story': drawStory(g, ctx); break;
       default:
         drawWorld(g, ctx);
         LS.HUD.draw(ctx, g);
