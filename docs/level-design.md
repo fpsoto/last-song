@@ -127,6 +127,18 @@ How the player learns it, without long tutorials or interruptions:
 - A short boss intro card with the name, an image, the musical identity and a line that hints at the mechanic, for example "While his amps keep roaring, nobody can stop him".
 - Visual and audio cues during the fight: a glowing amp can be destroyed, an exhausted animation means he is vulnerable, a wind-up pose announces a special attack, a signal starts a rhythm phase, a specific animation shows he is ready for the finisher.
 
+**How a mechanic is built (`js/mechanics.js`).** A boss declares it in its level data, next to a `hint` line for the intro card:
+
+```js
+boss: { type: 'king', name: '...', hp: 280, ...,
+        hint: 'HEAVY METAL: WHILE HIS AMPS ROAR, NOBODY CAN STOP HIM.',
+        mechanic: { type: 'amps' } }
+```
+
+The framework gives every mechanic the same skeleton, so normal combat always keeps working. While the boss is **guarded** he takes reduced damage (`guard`, default x0.5) and his health cannot drop below a floor (`floor`, default 15%); the boss bar turns red and shows a notch at that floor. The module decides when the guard drops. That leaves him **exhausted** for a moment (slumped, dizzy stars, no AI, full damage, cannot be interrupted): the opening for the final blow. After it the floor is gone. A module is a small object (`setup`, `update`, `draw`) registered with `LS.Mechanics.define(name, module)`; it knows nothing about any boss class, so a new boss needs only data (plus a new module if it wants a mechanic that does not exist yet).
+
+Today: `amps` (THE KING OF RIFFS: two glowing amps wired to him; smash both and the sound cuts out) and `windows` (LADY LACQUER, a placeholder: after each power chord he is left breathless). Bosses without a mechanic fight as plain health bars (MIRROR BALL MARV, a placeholder).
+
 Boss design rules:
 
 1. Every boss has its own special mechanic.

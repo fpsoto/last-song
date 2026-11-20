@@ -146,6 +146,7 @@
       }
     }
 
+    if (g.boss && g.boss.mech) LS.Mechanics.draw(ctx, g);   // the boss' mechanic cues (glows, cables, stars)
     drawExit(ctx, g);
     for (const pr of g.projectiles) drawShockwave(ctx, pr, g.t);
     LS.Effects.draw(ctx);

@@ -26,8 +26,9 @@
 
    and it ENDS in exactly one of:
 
-     boss   { type, name, hp, trigger, lock, tagline }   key into LS.BOSSES (boss.js); beating
-            him ends the route (Stage Clear)
+     boss   { type, name, hp, trigger, lock, tagline, hint, mechanic }   key into LS.BOSSES (boss.js); beating
+            him ends the route (Stage Clear). `mechanic: { type, ...options }` is the boss' signature
+            mechanic, `hint` the short line the intro card shows for it (mechanics.js; optional).
      exit   { lock, at, options: [ { to, y: [min, max], label } ] }
             After the last wave the camera stops at `lock` and Jack may walk to the line x = `at`.
             One option = a plain door: crossing the line takes it (`y` can be omitted).
@@ -224,6 +225,8 @@
     boss: {
       type: 'king', name: 'THE KING OF RIFFS', hp: 280, trigger: 1090, lock: 920,
       tagline: '"KNEEL BEFORE THE RIFF, AMATEUR."',
+      hint: 'HEAVY METAL: WHILE HIS AMPS ROAR, NOBODY CAN STOP HIM.',
+      mechanic: { type: 'amps' },
     },
     quips: { waves: ['A MOHAWK IN 1984? BOLD.', 'ONE LAST DOOR. THEN THE KING.'] },
     ending: 'ENDING 1 OF 4: LOYAL TO HEAVY METAL',
@@ -256,6 +259,8 @@
     boss: {
       type: 'king', name: 'LADY LACQUER', hp: 260, trigger: 1090, lock: 920,
       tagline: '"DARLING, THE HAIR IS THE BAND."',
+      hint: 'GLAM: AFTER EVERY BIG NUMBER, THE SHOW NEEDS A BREATH.',
+      mechanic: { type: 'windows', after: 'chord', time: 2.4, aura: '#ff5ad0' },
     },
     quips: { waves: ['TWENTY YEARS AND STILL NO ENCORE.', 'MORE HAIRSPRAY THAN SENSE.'], boss: 'THAT HAIR HAS MORE VOLUME THAN MY CAREER.' },
     ending: 'ENDING 2 OF 4: SHOWBIZ, DARLING',
@@ -422,6 +427,7 @@
       if (s.sceneWidth && (s.sceneX || 0) + s.width > s.sceneWidth) err(at + 'sceneX + width runs past sceneWidth');
       if (!Array.isArray(s.waves)) err(at + 'needs a waves array (it can be empty)');
       if (!s.music) err(at + 'needs music');
+      if (s.boss && s.boss.mechanic && !LS.Mechanics.modules[s.boss.mechanic.type]) err(at + "unknown boss mechanic '" + s.boss.mechanic.type + "'");
       if (s.wardrobe && !LS.Sprites.WARDROBES[s.wardrobe]) err(at + "unknown wardrobe '" + s.wardrobe + "'");
       for (const k of ['props', 'breakables', 'lights']) if (!Array.isArray(s[k])) err(at + 'needs a ' + k + ' array (it can be empty)');
       if (!!s.boss === !!s.exit) err(at + 'must end in exactly one of boss / exit');
