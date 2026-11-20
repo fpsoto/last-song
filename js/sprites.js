@@ -364,7 +364,8 @@
     crouch: K({ lean: 0.6, fs: 0.4, fe: 0.9, bs: 0.2, be: 1.0, ft: 1.25, fk: 2.2, bt: 0.2, bk: 1.7 }),
   };
 
-  // Per-character key poses. Each attack has a wind-up pose and a hit pose.
+  // Per-character key poses. Each attack has a wind-up pose and a hit pose. `hurt`, `fall` and `down`
+  // are optional character-specific reactions (COMMON is the fallback, used by Jack).
   const SETS = {
     jack: {
       rate: 10, swing: 0.6,
@@ -406,6 +407,12 @@
     },
     roadie: {
       rate: 7, swing: 0.45,
+      // Big and slow to react: barely rocks back, doubles over with both arms clutching his gut...
+      hurt: K({ lean: -0.2, ox: -1, fs: 0.95, fe: 2.0, bs: 0.8, be: 2.1, ft: 0.55, fk: 0.75, bt: -0.1, bk: 0.5, hurt: 1 }),
+      // ...falls like a sack, arms flung wide...
+      fall: K({ lean: -0.9, fs: 0.2, fe: 0.1, bs: -2.9, be: 0.1, ft: 0.9, fk: 0.6, bt: 0.7, bk: 0.8, hurt: 1 }),
+      // ...and lies spread-eagled.
+      down: K({ lean: -1.5, fs: -0.35, fe: 0.1, bs: -2.2, be: 0.1, ft: 1.3, fk: 0.1, bt: 1.6, bk: 0.2, hurt: 1 }),
       guard: K({ lean: 0.18, fs: 0.4, fe: 1.3, bs: 0, be: 1.5, ft: 0.35, fk: 0.3, bt: -0.35, bk: 0.1 }),
       atk: {
         haymaker: {
@@ -416,6 +423,12 @@
     },
     groupie: {
       rate: 12, swing: 0.5,
+      // Shrieks: both arms thrown up, knees together...
+      hurt: K({ lean: -0.3, ox: -2, fs: 2.7, fe: 0.6, bs: 2.3, be: 0.8, ft: 0.15, fk: 0.5, bt: -0.15, bk: 0.4, hurt: 1 }),
+      // ...flails backwards with her legs kicking up...
+      fall: K({ lean: -1.2, fs: 2.5, fe: 0.4, bs: 2.0, be: 0.6, ft: 1.7, fk: 0.2, bt: 1.2, bk: 1.1, hurt: 1 }),
+      // ...and ends on her back, one knee up and an arm over her head.
+      down: K({ lean: -1.5, fs: 2.4, fe: 0.3, bs: 1.5, be: 0.2, ft: 1.5, fk: 0.05, bt: 1.1, bk: 1.5, hurt: 1 }),
       guard: K({ lean: 0, fs: 0.5, fe: 2.3, bs: -0.3, be: 1.2, ft: 0.2, fk: 0.1, bt: -0.2, bk: 0.05 }),
       atk: {
         bag: { // overhead handbag swing
@@ -426,6 +439,12 @@
     },
     punk: {
       rate: 11, swing: 0.55,
+      // Stays defiant: forearm still up to shield the face as he reels...
+      hurt: K({ lean: -0.3, ox: -2, fs: 0.65, fe: 2.2, bs: -0.9, be: 0.6, ft: 0.55, fk: 0.5, bt: -0.4, bk: 0.3, hurt: 1 }),
+      // ...spins off his feet with his knees pulled in...
+      fall: K({ lean: -1.0, fs: 0.8, fe: 2.0, bs: -1.6, be: 0.5, ft: 1.2, fk: 1.5, bt: 1.0, bk: 1.6, hurt: 1 }),
+      // ...and lands curled up on his side.
+      down: K({ lean: -1.45, fs: 0.9, fe: 2.2, bs: 0.5, be: 2.0, ft: 1.35, fk: 1.7, bt: 1.4, bk: 1.9, hurt: 1 }),
       guard: K({ lean: 0.22, fs: 0.7, fe: 1.7, bs: -0.2, be: 1.8, ft: 0.4, fk: 0.35, bt: -0.4, bk: 0.15 }),
       atk: {
         lunge: { // deep crouch (the telegraph), then a flying shoulder charge
@@ -436,6 +455,12 @@
     },
     king: {
       rate: 7, swing: 0.2,
+      // The King barely flinches: head snaps back, one arm still clamped on the guitar...
+      hurt: K({ lean: -0.2, ox: -1, fs: 1.0, fe: 1.3, bs: 0.5, be: 1.4, ft: 0.42, fk: 0.2, bt: -0.4, bk: 0.1, hurt: 1 }),
+      // ...goes down hard, still holding the guitar out to the side...
+      fall: K({ lean: -1.05, fs: 1.1, fe: 0.6, bs: -2.6, be: 0.3, ft: 1.1, fk: 0.7, bt: 0.8, bk: 1.1, ga: -1.5, hurt: 1 }),
+      // ...and lies there with one knee up, guitar across his chest.
+      down: K({ lean: -1.5, fs: 1.2, fe: 1.6, bs: 0.9, be: 1.7, ft: 1.4, fk: 0.1, bt: 1.2, bk: 1.4, ga: -0.3, hurt: 1 }),
       guard: K({ lean: -0.06, fs: 0.9, fe: 1.1, bs: 0.35, be: 1.2, ft: 0.38, fk: 0.1, bt: -0.36, bk: 0 }),
       taunt: K({ lean: -0.18, fs: 2.9, fe: 0.1, bs: 0.3, be: 1.2, ft: 0.32, fk: 0.05, bt: -0.32, bk: 0 }),
       atk: {
@@ -507,12 +532,15 @@
       }
       case 'block': // raise the guard in a few frames, then hold it (only Jack has a block pose)
         return set.block ? mix(g, set.block, t / 0.07) : g;
-      case 'hurt': return mix(COMMON.hurt, g, (t - 0.15) / 0.25);
-      case 'fall': return COMMON.fall;
+      // Reactions: each character may define its own hurt / fall / down poses (same timings for all).
+      case 'hurt': return mix(set.hurt || COMMON.hurt, g, (t - 0.15) / 0.25);
+      case 'fall': return set.fall || COMMON.fall;
       case 'down':
-      case 'dead': return COMMON.down;
-      case 'getup':
-        return t < 0.18 ? mix(COMMON.down, COMMON.crouch, t / 0.18) : mix(COMMON.crouch, g, (t - 0.18) / 0.17);
+      case 'dead': return set.down || COMMON.down;
+      case 'getup': {
+        const dn = set.down || COMMON.down;
+        return t < 0.18 ? mix(dn, COMMON.crouch, t / 0.18) : mix(COMMON.crouch, g, (t - 0.18) / 0.17);
+      }
       case 'jump': // blend from the "rising" to the "falling" pose as the vertical speed flips
         return mix(set.jump.up, set.jump.down, 0.5 - f.vz / 420);
       case 'special':
