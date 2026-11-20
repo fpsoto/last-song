@@ -414,7 +414,9 @@
         G.pending = G.pending.filter((s) => {
           if (G.phaseT < s.delay) return true;
           const x = s.side > 0 ? wave.lock + LS.W + 24 : wave.lock - 24; // walk in from off-screen
-          G.enemies.push(new LS.Enemy(s.type, x, s.y));
+          const foe = new LS.Enemy(s.type, x, s.y);
+          foe.wardrobe = era.wardrobe;   // the segment's era outfit (data only, see sprites.js WARDROBES)
+          G.enemies.push(foe);
           return false;
         });
         if (!G.pending.length && !G.enemies.length) {

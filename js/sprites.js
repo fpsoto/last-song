@@ -1,7 +1,7 @@
 /* sprites.js - procedural pixel-art characters (v2: shading, rim light, smears, more detail).
 
    There are no image files. Every character is a small 2D "rig":
-     - a LOOK  (colours, proportions, hair style, accessories)
+     - a LOOK  (the base BODY proportions + a wardrobe: colours, hair style, accessories)
      - a POSE  (joint angles for torso, arms and legs)
    The rig is drawn with chunky square "stamps" at integer coordinates, which is what
    gives it a pixel-art look. Animation = interpolating between hand-authored key poses.
@@ -36,11 +36,17 @@
      Far-side limbs (the arm and leg behind the body) are darker so depth reads at a glance. */
   const tones = (hex) => ({ n: [hex, LS.shade(hex, 0.62)], f: [LS.shade(hex, 0.7), LS.shade(hex, 0.44)] });
 
+  /* THE BASE BODY: the rig every regular NPC (and Jack) is built on. Proportions live here and only
+     here, so a new decade never needs new drawing code. Limb lengths and widths are the same for
+     every NPC; a few pixels of "how bulky the clothes are" (`bulk` in a wardrobe) are what make a
+     heavy enemy read as big. Bosses are the exception: they pass their own proportions to look(). */
+  const BODY = (S.BODY = {
+    thigh: 11, shin: 11, torso: 16, uarm: 8, farm: 8,
+    legW: 5, armW: 4, torsoW: 10, head: 8,
+  });
+
   function look(o) {
-    const L = Object.assign({
-      thigh: 11, shin: 11, torso: 16, uarm: 8, farm: 8,
-      legW: 5, armW: 4, torsoW: 10, head: 8, sleeves: true,
-    }, o);
+    const L = Object.assign({ sleeves: true, bulk: 0 }, BODY, o);
     L.t = {};
     for (const k of ['skin', 'jacket', 'shirt', 'pants', 'boots']) L.t[k] = tones(L[k]);
     L.skinD = LS.shade(L.skin, 0.76);
@@ -49,35 +55,85 @@
     return L;
   }
 
+  /* WARDROBES: what the regular NPCs wear, per era. Pure data: skin, hair, clothes, accessories (see
+     the keys used by headUp / drawBody) on top of the base body. Each wardrobe dresses the three NPC
+     types, and the type is still read in combat through the outfit:
+        roadie  the big one: dark, chunky clothes (bulk +2), beard or shades
+        punk    the fast one: loud hair and bright accents (bulk -1)
+        groupie the light one: slim cut (bulk -2), big hair, a swinging bag
+     To add an era: add a wardrobe here and set `wardrobe: 'id'` on the level segment (levels.js). */
+  const WARDROBES = (S.WARDROBES = {
+    // 1984 Heavy Metal (the default): leather, denim, studs and bandanas.
+    metal: {
+      roadie: { // sleeveless shirt, bandana, beard, tattoo, gaffer tape on the belt
+        skin: '#c88c60', hair: '#1c1612', hairStyle: 'bandana', bandana: '#b3261e', jacket: '#1f1f26',
+        shirt: '#1f1f26', logo: '#c8c8d0', pants: '#3a3d48', boots: '#0e0e10', belt: '#7a7a82', buckle: '#d8d8e0',
+        beard: '#1c1612', sleeves: false, bulk: 2, tattoo: '#2a4a6a', tape: '#b8b8c0', wrist: '#0e0e10',
+      },
+      groupie: { // huge teased hair, neon top, mini skirt, white boots, swinging handbag
+        skin: '#efc2a2', hair: '#f4d35e', hairStyle: 'big', jacket: '#e0348c', shirt: '#e0348c',
+        logo: '#ffe66d', pants: '#4a2e80', skirt: '#19c8d8', boots: '#f4f4f4', lips: '#d01840',
+        sleeves: false, bulk: -2, bag: '#ffe14a', wrist: '#ffe14a', earring: '#ffe14a',
+      },
+      punk: { // green mohawk, studded leather vest over a red tee, tartan trousers, steel-toe boots
+        skin: '#e6b896', hair: '#2ee86a', hairStyle: 'mohawk', jacket: '#1a1a1f', shirt: '#c01830',
+        logo: '#e8e8f0', pants: '#8a1424', boots: '#16161a', belt: '#16161a', buckle: '#d8d8e0',
+        sleeves: false, bulk: -1, studs: '#d8d8e0', earring: '#d8d8e0', lips: '#8a3a40', knee: '#14141a',
+        wrist: '#d8d8e0', tattoo: '#2a4a6a',
+      },
+    },
+    // Glam metal: spandex, sequins and a lot of pink and gold.
+    glam: {
+      roadie: { // tour manager in a sequined vest and gold trousers
+        skin: '#c88c60', hair: '#4a1a5a', hairStyle: 'long', jacket: '#e0348c', shirt: '#e0348c',
+        logo: '#ffe66d', pants: '#f2c230', boots: '#f4f4f4', belt: '#ffe66d', buckle: '#ffffff',
+        sleeves: false, bulk: 2, wrist: '#ffe66d', earring: '#ffe66d', lips: '#a02a50',
+      },
+      groupie: { // lavender teased hair, cyan top, gold skirt
+        skin: '#efc2a2', hair: '#ff8ad8', hairStyle: 'big', jacket: '#19c8d8', shirt: '#19c8d8',
+        logo: '#ffffff', pants: '#7a22b0', skirt: '#f2c230', boots: '#d81b60', lips: '#d01840',
+        sleeves: false, bulk: -2, bag: '#7a22b0', wrist: '#ffe14a', earring: '#ffe14a',
+      },
+      punk: { // pink mohawk, cyan vest, magenta spandex
+        skin: '#e6b896', hair: '#ff5ad0', hairStyle: 'mohawk', jacket: '#19c8d8', shirt: '#7a22b0',
+        logo: '#ffe66d', pants: '#d81b60', boots: '#f4f4f4', belt: '#ffe66d', buckle: '#ffffff',
+        sleeves: false, bulk: -1, studs: '#ffe66d', earring: '#ffe66d', lips: '#a02a50', wrist: '#ffe66d',
+      },
+    },
+    // Disco: white suits, gold chains, sunglasses and the floor lit from underneath.
+    disco: {
+      roadie: { // the bouncer: black suit, white shirt, shades
+        skin: '#a8744c', hair: '#0c0c10', hairStyle: 'bandana', bandana: '#101018', jacket: '#101018',
+        shirt: '#f4f4f4', logo: '#f2c230', pants: '#101018', boots: '#0a0a0c', trim: '#c8c8d0',
+        shades: true, bulk: 2, belt: '#0a0a0c', buckle: '#c8c8d0', wrist: '#f4f4f4',
+      },
+      groupie: { // dark curls, lime top, hot-pink skirt
+        skin: '#c88c60', hair: '#2a1a14', hairStyle: 'big', jacket: '#7dff6a', shirt: '#7dff6a',
+        logo: '#ffffff', pants: '#4a2e80', skirt: '#ff2e88', boots: '#f4f4f4', lips: '#d01840',
+        sleeves: false, bulk: -2, bag: '#f2c230', wrist: '#f2c230', earring: '#f2c230',
+      },
+      punk: { // the dancer: cyan mohawk, white vest and trousers, gold accents
+        skin: '#8a5a3a', hair: '#28dcff', hairStyle: 'mohawk', jacket: '#f4f4f4', shirt: '#f2c230',
+        logo: '#ffffff', pants: '#f4f4f4', boots: '#19c8d8', belt: '#f2c230', buckle: '#fff3a0',
+        sleeves: false, bulk: -1, studs: '#ffe14a', earring: '#ffe14a', lips: '#7a3a30', wrist: '#ffe14a',
+      },
+    },
+  });
+
   const LOOKS = (S.LOOKS = {
     // Jack Ryder: worn leather jacket, fictional band tee, tight jeans, boots, tired face,
-    // and the guitar he still carries everywhere in a beat-up gig bag.
+    // and the guitar he still carries everywhere in a beat-up gig bag. Keeps his own look.
     jack: look({
       skin: '#dba077', hair: '#3d2b22', hairStyle: 'long', jacket: '#30303f', trim: '#6a6a88',
       shirt: '#a62a3a', logo: '#f2d24a', pants: '#3a5c96', boots: '#1b1513', belt: '#120e0c', buckle: '#c8c8d0',
       stubble: '#a88068', bags: true, lips: '#7a4a3c', gigbag: '#5a3a24', knee: '#6f8fc4', wrist: '#120e0c',
     }),
-    // Roadie: big, dark sleeveless shirt, bandana, beard, tattoo, gaffer tape on the belt.
-    roadie: look({
-      skin: '#c88c60', hair: '#1c1612', hairStyle: 'bandana', bandana: '#b3261e', jacket: '#1f1f26',
-      shirt: '#1f1f26', logo: '#c8c8d0', pants: '#3a3d48', boots: '#0e0e10', belt: '#7a7a82', buckle: '#d8d8e0',
-      beard: '#1c1612', sleeves: false, torsoW: 12, armW: 5, legW: 6, torso: 17, tattoo: '#2a4a6a', tape: '#b8b8c0',
-      wrist: '#0e0e10',
-    }),
-    // Groupie: huge teased hair, neon top, mini skirt, white boots, swinging handbag.
-    groupie: look({
-      skin: '#efc2a2', hair: '#f4d35e', hairStyle: 'big', jacket: '#e0348c', shirt: '#e0348c',
-      logo: '#ffe66d', pants: '#4a2e80', skirt: '#19c8d8', boots: '#f4f4f4', lips: '#d01840',
-      sleeves: false, torsoW: 8, armW: 3, legW: 4, torso: 14, bag: '#ffe14a', wrist: '#ffe14a', earring: '#ffe14a',
-    }),
-    // Punk: green mohawk, studded leather vest over a red tee, tartan trousers, steel-toe boots.
-    punk: look({
-      skin: '#e6b896', hair: '#2ee86a', hairStyle: 'mohawk', jacket: '#1a1a1f', shirt: '#c01830',
-      logo: '#e8e8f0', pants: '#8a1424', boots: '#16161a', belt: '#16161a', buckle: '#d8d8e0',
-      sleeves: false, studs: '#d8d8e0', earring: '#d8d8e0', lips: '#8a3a40', knee: '#14141a',
-      wrist: '#d8d8e0', tattoo: '#2a4a6a', torsoW: 9, torso: 16,
-    }),
-    // The King of Riffs: taller, silver mane, purple coat with gold trim, shades, flares, guitar.
+    // The regular NPCs: the default (metal) wardrobe on the base body.
+    roadie: look(WARDROBES.metal.roadie),
+    groupie: look(WARDROBES.metal.groupie),
+    punk: look(WARDROBES.metal.punk),
+    // The King of Riffs: a boss, so his own proportions and props: taller, silver mane, purple coat
+    // with gold trim, shades, flares, guitar.
     king: look({
       skin: '#d6a070', hair: '#e4e4ee', hairStyle: 'mane', jacket: '#7a22b0', trim: '#f2c230',
       shirt: '#d6a070', logo: '#f2c230', pants: '#d81b60', boots: '#f2f2f2', belt: '#f2c230', buckle: '#fff3a0',
@@ -85,6 +141,16 @@
       thigh: 13, shin: 13, torso: 19, uarm: 10, farm: 9, torsoW: 11, head: 9,
     }),
   });
+
+  /* The look of a fighter: a regular NPC dressed in the wardrobe it was given (cached), else the
+     default one. Jack and the bosses always use their own LOOKS entry. */
+  const dressed = {};
+  S.lookFor = function (kind, wardrobe) {
+    const w = wardrobe && WARDROBES[wardrobe];
+    if (!w || !w[kind]) return LOOKS[kind];
+    const key = wardrobe + '/' + kind;
+    return dressed[key] || (dressed[key] = look(w[kind]));
+  };
 
   // ---------------------------------------------------------------------
   // Drawing primitives
@@ -279,8 +345,8 @@
     const tx1 = sx - ux * (half - 1), ty1 = sy - uy * (half - 1);
     // Two stamps give the torso a silhouette: narrow waist, broader chest and shoulders.
     const mx = (tx0 + tx1) / 2, my = (ty0 + ty1) / 2;
-    stamp(c, tx0, ty0, mx, my, L.torsoW - 1, J.n[0], J.n[1]);
-    stamp(c, mx, my, tx1, ty1, L.torsoW, J.n[0], J.n[1]);
+    stamp(c, tx0, ty0, mx, my, L.torsoW + L.bulk - 1, J.n[0], J.n[1]);   // bulk: how chunky the clothes are
+    stamp(c, mx, my, tx1, ty1, L.torsoW + L.bulk, J.n[0], J.n[1]);
     if (L.studs) for (let i = 0; i < 4; i++) dot(c, sx - ux * (1 + i * 2.5) + fx * (half - 1), sy - uy * (1 + i * 2.5) + fy * (half - 1), 1, L.studs);
     if (L.sleeves) {
       // open jacket: a strip of shirt on the chest side, one pixel of lapel left in front
@@ -576,7 +642,7 @@
        light always comes from above no matter which way the fighter faces.
      - HIT FLASH: the silhouette recoloured white, drawn instead of the sprite. */
   S.draw = function (ctx, f, x, y, light) {
-    const L = LOOKS[f.kind], P = S.pose(f);
+    const L = S.lookFor(f.kind, f.wardrobe), P = S.pose(f);
     b.clearRect(0, 0, BW, BH);
     b.save();
     b.translate(OX, OY);

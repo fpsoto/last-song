@@ -101,6 +101,10 @@ The incentive to replay comes from alternative scenery, new enemy groups, differ
 
 Regular NPCs use the same base body in every level. Only outfit, skin and accessories change with the era, so adding a new decade means adding a wardrobe, not new drawing code (#32). Enemy types keep their gameplay differences (health, damage, speed) and must stay readable in combat through outfit and accessories.
 
+**How it works.** `sprites.js` has one `BODY` (proportions and rig) and a `WARDROBES` table (skin, hair, clothes, accessories) with an entry per era; a level segment picks one with `wardrobe: 'id'` (default `metal`). Today: `metal`, `glam`, `disco`. Adding an era means adding data, not drawing code; the only limit is the set of hair styles and accessories `drawBody` already knows.
+
+**How the types stay readable on the same body.** By outfit, not by proportions: the roadie (big, slow) wears dark, chunky clothes (`bulk: 2`) with a beard or shades, the punk (fast) has loud hair and bright accents, and the groupie (light) has a slim cut (`bulk: -2`), big hair and a handbag. Every wardrobe dresses all three types the same way. Hit boxes, animations and timings do not depend on the look. Jack and the bosses keep their own LOOKS, so bosses can have their own proportions and props.
+
 ## Bosses
 
 Every boss is unique in look and behaviour, and each one has a signature mechanic that no other boss uses. A 1950s rockabilly boss must not feel like a 1980s heavy metal boss.
