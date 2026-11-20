@@ -26,9 +26,44 @@
     I.down[a] = true;
     LS.Audio.unlock(); // browsers only allow audio after a user gesture
   }
+  // Which actions the keyboard holds, so the pad and the keyboard never release each other's input.
+  const keyHeld = {};
+  let padHeld = {};
   function release(a) { I.down[a] = false; }
 
   I.endFrame = function () { I.pressed = {}; };
+
+  /* ---- Gamepad (standard mapping) ----
+     The Gamepad API has no events for button changes, so main.js calls I.poll() once per frame. It
+     turns the pad into the same abstract actions as the keyboard: a change of state calls press() /
+     release() exactly like a key would, so keyboard, touch and pad all work at the same time.
+       stick / d-pad  move (menus too)      X punch   Y kick   A jump   B solo
+       LB RB LT RT    block (hold)          Start     start / confirm, and pause while playing
+       Back / Select  pause (go back in menus) */
+  const PAD_BUTTONS = {
+    0: 'jump', 1: 'special', 2: 'punch', 3: 'kick',
+    4: 'block', 5: 'block', 6: 'block', 7: 'block',
+    8: 'pause', 9: 'start',
+    12: 'up', 13: 'down', 14: 'left', 15: 'right',
+  };
+  const STICK_DEADZONE = 0.45;
+  I.poll = function () {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    const want = {};
+    for (const gp of pads) {
+      if (!gp || !gp.connected || gp.mapping !== 'standard') continue;
+      gp.buttons.forEach((b, i) => { if ((b.pressed || b.value > 0.5) && PAD_BUTTONS[i]) want[PAD_BUTTONS[i]] = true; });
+      const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
+      if (ax < -STICK_DEADZONE) want.left = true; else if (ax > STICK_DEADZONE) want.right = true;
+      if (ay < -STICK_DEADZONE) want.up = true; else if (ay > STICK_DEADZONE) want.down = true;
+      // Start also pauses during play (Esc does on the keyboard; Enter alone would do nothing there).
+      // Only on the press itself: held on, it would re-pause the frame after Start resumed the game.
+      if (want.start && !padHeld.start && LS.game && LS.game.state === 'playing' && !LS.game.exitPick) want.pause = true;   // at a fork Start confirms the door instead
+    }
+    for (const a of Object.keys(want)) if (!padHeld[a]) press(a);
+    for (const a of Object.keys(padHeld)) if (!want[a] && !keyHeld[a]) release(a);   // a key still holding it keeps it down
+    padHeld = want;
+  };
   I.releaseAll = function () { I.down = {}; };
 
   I.init = function () {
@@ -36,11 +71,12 @@
       const a = KEYMAP[e.code];
       if (!a) return;
       e.preventDefault();
+      keyHeld[a] = true;
       if (!e.repeat) press(a);
     });
     window.addEventListener('keyup', (e) => {
       const a = KEYMAP[e.code];
-      if (a) { e.preventDefault(); release(a); }
+      if (a) { e.preventDefault(); keyHeld[a] = false; if (!padHeld[a]) release(a); }
     });
     window.addEventListener('blur', I.releaseAll);
 

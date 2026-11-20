@@ -482,8 +482,9 @@
     T.draw(ctx, 'BLOCK FACING A FOE: HEAVY HITS STAGGER, A DRAINED GUARD BREAKS', 240, 180, '#ff9ad0', 1, 'center');
     T.draw(ctx, 'KOS CHARGE THE SOLO. SMASH CRATES FOR FOOD AND POWER', 240, 192, '#ff9ad0', 1, 'center');
     T.draw(ctx, 'JUMP OR SIDESTEP (W / S) TO DODGE SHOCKWAVES', 240, 204, '#ff9ad0', 1, 'center');
-    T.draw(ctx, 'TOUCH: STICK ON THE LEFT, BUTTONS ON THE RIGHT', 240, 218, '#7d6f9c', 1, 'center');
-    if (((g.t * 2.5) | 0) % 2 === 0) T.shadow(ctx, 'PRESS ENTER TO GO BACK', 240, 232, '#ffe14a', 1, 'center');
+    T.draw(ctx, 'TOUCH: STICK ON THE LEFT, BUTTONS ON THE RIGHT', 240, 214, '#7d6f9c', 1, 'center');
+    T.draw(ctx, 'GAMEPAD: STICK MOVE  X PUNCH  Y KICK  A JUMP  B SOLO  LB BLOCK  START', 240, 223, '#7d6f9c', 1, 'center');
+    if (((g.t * 2.5) | 0) % 2 === 0) T.shadow(ctx, 'PRESS ENTER TO GO BACK', 240, 235, '#ffe14a', 1, 'center');
   }
 
   // ---------------------------------------------------------------------
