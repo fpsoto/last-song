@@ -79,6 +79,7 @@ js/
   player.js       Jack Ryder
   enemy.js        Roadie and Groupie (data-driven) + AI state machine
   boss.js         The King of Riffs (boss registry)
+  mechanics.js    boss signature mechanics, declared in level data (amps, windows)
   levels.js       level graphs (segments, forks), era registry, waves, boss, music, texts
   renderer.js     draws the world and every screen
   game.js         global state machine and level flow

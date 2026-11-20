@@ -402,6 +402,7 @@
           } else {
             G.phase = 'bossIntro';
             G.boss = new LS.BOSSES[era.boss.type](next.lock + LS.W + 40, 212, era.boss);
+            LS.Mechanics.start(G.boss, G, era.boss, next.lock);   // the boss' signature mechanic, if its data declares one
             G.bubble = null;
             LS.Audio.stopMusic();
             LS.Audio.sfx('warning');
@@ -501,7 +502,7 @@
     if (frozen) p.moving = false;
     p.update(dt, frozen ? NO_INPUT : I, G);
     for (const e of G.enemies) e.update(dt, G);
-    if (G.boss) G.boss.update(dt, G);
+    if (G.boss) { G.boss.update(dt, G); LS.Mechanics.update(G.boss, G, dt); }
     G.enemies = G.enemies.filter((e) => !e.remove);
     if (G.target && G.target.remove) G.targetT = Math.min(G.targetT, 0.6);
 

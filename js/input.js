@@ -151,6 +151,11 @@
     if (!p) return;
     const d = (I.down = {});
     let t = g.boss && g.boss.hp > 0 && g.phase === 'boss' ? g.boss : null;
+    // A guarded boss (mechanics.js) cannot be finished: go for the nearest powered amp instead.
+    if (t && t.mech && t.mech.st.guarded) {
+      let best = 1e9;
+      for (const b of g.breakables) if (b.powered && !b.remove && b.hp > 0 && Math.abs(b.x - p.x) < best) { best = Math.abs(b.x - p.x); t = b; }
+    }
     if (!t) {
       let best = 1e9;
       for (const e of g.enemies) {

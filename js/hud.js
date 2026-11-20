@@ -150,8 +150,11 @@
     if (b && (g.phase === 'boss' || g.phase === 'bossDead')) {
       R(ctx, 78, 246, 324, 22, 'rgba(10,5,18,0.78)');
       T.shadow(ctx, b.name, 240, 248, '#ffe14a', 1, 'center');
+      const guarded = b.mech && b.mech.st.guarded;
       H.bar(ctx, 90, 257, 300, 7, b.hp / b.maxHp, b.lagHp / b.maxHp,
-        b.hp / b.maxHp < 0.5 ? '#ff2e88' : '#b04dff', '#ffc0f0');
+        guarded ? '#c8503c' : b.hp / b.maxHp < 0.5 ? '#ff2e88' : '#b04dff', '#ffc0f0');
+      // While he is protected the bar shows where it stops: a notch at the floor his HP cannot go below
+      if (guarded) { const fx = 90 + Math.round(300 * (b.mech.cfg.floor == null ? 0.15 : b.mech.cfg.floor)); R(ctx, fx, 255, 1, 11, '#ffe14a'); }
     }
 
     // "GO" prompt while the way forward is open
@@ -181,9 +184,10 @@
           T.draw(ctx, 'WARNING', x, y + 4, on ? '#1a0606' : '#ff2e2e');
       }
       if (g.phaseT > 1.4) {
-        R(ctx, 0, 60, LS.W, 34, 'rgba(10,5,18,0.82)');
+        R(ctx, 0, 60, LS.W, era.boss.hint ? 44 : 34, 'rgba(10,5,18,0.82)');
         T.shadow(ctx, era.boss.name, 240, 64, '#ffe14a', 3, 'center', '#b0241e');
         T.draw(ctx, era.boss.tagline, 240, 84, '#ff9ad0', 1, 'center');
+        if (era.boss.hint && g.phaseT > 2.0) T.draw(ctx, era.boss.hint, 240, 96, '#28dcff', 1, 'center');   // a hint at the mechanic, not an explanation
       }
     }
   };

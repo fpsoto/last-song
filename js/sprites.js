@@ -427,6 +427,8 @@
     hurt: K({ lean: -0.42, ox: -2, fs: -0.5, fe: 0.8, bs: -1.0, be: 0.5, ft: 0.4, fk: 0.4, bt: -0.3, bk: 0.2, hurt: 1 }),
     fall: K({ lean: -1.15, fs: 1.3, fe: 0.3, bs: -2.3, be: 0.2, ft: 1.25, fk: 0.3, bt: 0.9, bk: 0.5, hurt: 1 }),
     down: K({ lean: -1.5, fs: 1.45, fe: 0, bs: -1.75, be: 0, ft: 1.5, fk: 0, bt: 1.42, bk: 0.1, hurt: 1 }),
+    // Exhausted (boss mechanics): hunched over with the arms hanging and the knees buckling.
+    tired: K({ lean: 0.55, ox: 1, fs: 0.25, fe: 0.35, bs: 0.05, be: 0.3, ft: 0.8, fk: 1.2, bt: 0.2, bk: 0.9, ga: -1.3, hurt: 1 }),
     crouch: K({ lean: 0.6, fs: 0.4, fe: 0.9, bs: 0.2, be: 1.0, ft: 1.25, fk: 2.2, bt: 0.2, bk: 1.7 }),
   };
 
@@ -613,6 +615,7 @@
         if (t < 0.5) return mix(g, set.special.raise, t / 0.4);
         if (t < 0.65) return set.special.slam;
         return mix(set.special.slam, g, (t - 0.65) / 0.35);
+      case 'exhausted': return Object.assign({}, set.tired || COMMON.tired, { bob: Math.sin(f.animT * 6) > 0 ? 1 : 0 });   // heaving for breath
       case 'taunt': return set.taunt || g;
       case 'menu': return menuPose(set, f);
       default:
