@@ -13,6 +13,8 @@
      sceneX/sceneWidth optional: show only a slice of a bigger scene (see Background.build), so one
                        long stage can be cut into segments with no visible seam
      tint              optional colour wash over the scene art (palette of a placeholder route)
+     wardrobe          optional key into LS.Sprites.WARDROBES: what the regular NPCs of this segment wear
+                       (default 'metal'). Same base body, other outfits: data only.
      ending            line shown on the Stage Clear screen when this route is finished
      lights            rim-light colour on the fighters, by world x
      music/bossMusic   patterns for the sequencer in audio.js
@@ -230,6 +232,7 @@
   // Glam Metal (placeholder): lots of groupies, hairspray pink, faster tempo.
   const glam = route({
     title: 'GLAM METAL',
+    wardrobe: 'glam',
     tint: 'rgba(255,40,200,0.16)',
     lights: [{ to: 1400, color: '#ff7ad9' }],
     music: Object.assign({}, barTheme, { bpm: 150 }),
@@ -262,6 +265,7 @@
   // (Disco -> Pop) arrives with the Disco and Pop segments (#28, #29, #30).
   const disco = route({
     title: 'DISCO',
+    wardrobe: 'disco',
     tint: 'rgba(40,220,255,0.14)',
     lights: [{ to: 1400, color: '#8eeaff' }],
     music: Object.assign({}, barTheme, { bpm: 120 }),
@@ -418,6 +422,7 @@
       if (s.sceneWidth && (s.sceneX || 0) + s.width > s.sceneWidth) err(at + 'sceneX + width runs past sceneWidth');
       if (!Array.isArray(s.waves)) err(at + 'needs a waves array (it can be empty)');
       if (!s.music) err(at + 'needs music');
+      if (s.wardrobe && !LS.Sprites.WARDROBES[s.wardrobe]) err(at + "unknown wardrobe '" + s.wardrobe + "'");
       for (const k of ['props', 'breakables', 'lights']) if (!Array.isArray(s[k])) err(at + 'needs a ' + k + ' array (it can be empty)');
       if (!!s.boss === !!s.exit) err(at + 'must end in exactly one of boss / exit');
       if (!LS.Scenes[s.background || level.defaults.background]) err(at + "uses an unknown background '" + s.background + "'");
