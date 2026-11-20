@@ -53,6 +53,7 @@
     // Delta time in seconds, clamped so a long stall can't teleport anything.
     const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
     last = now;
+    LS.Input.poll();
     LS.game.update(dt);
     LS.Renderer.draw(LS.game, ctx);
     LS.Input.endFrame();

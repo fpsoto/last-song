@@ -20,6 +20,7 @@ You are **Jack Ryder**, a 38-year-old musician who never made it. Fight your way
 | The Last Solo (needs a full meter) | `L` |
 | Start / confirm | `Enter` |
 | Pause | `Esc` |
+| Gamepad (standard mapping, any browser with the Gamepad API) | Stick or d-pad move, `X` punch, `Y` kick, `A` jump, `B` solo, `LB`/`RB`/`LT`/`RT` block, `Start` start / confirm / pause, `Back` pause or go back |
 | Sound on / off | `M` (or the button in the top-right corner, or Options in the menu) |
 | Menu | `W` `S` or arrows to move, `Enter` to choose, `Esc` to go back; a click or tap on an option also picks it |
 
